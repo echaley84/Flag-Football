@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#1B2A41">
+<title>U9 Animated Playbook — 100 Plays</title>
+<style>
+  :root{
+    --ink:#1B2A41; --gold:#F4B400; --field:#EDF7ED;
+    --x:#D62828; --y:#1E9E50; --z:#1D6FD6; --c:#F77F00; --r:#7B2CBF; --q:#7B2CBF;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;font-family:-apple-system,'Segoe UI',Roboto,sans-serif;background:#10192B;color:#fff;overflow:hidden;}
+  #app{display:flex;flex-direction:column;height:100%;}
+  header{background:var(--ink);padding:10px 14px;display:flex;align-items:center;gap:12px;flex-shrink:0;}
+  header h1{font-size:17px;margin:0;font-weight:800;letter-spacing:.4px;}
+  header .sub{color:var(--gold);font-size:12px;font-weight:700;}
+  #tabs{display:flex;gap:6px;padding:8px 10px;background:#0C1422;flex-shrink:0;overflow-x:auto;}
+  .tab{flex:1;min-width:88px;border:none;border-radius:10px;padding:10px 6px;font-size:14px;font-weight:800;color:#fff;opacity:.45;}
+  .tab.active{opacity:1;box-shadow:0 0 0 2px #fff inset;}
+  #main{display:flex;flex:1;min-height:0;}
+  #list{width:220px;overflow-y:auto;background:#0C1422;padding:8px;flex-shrink:0;-webkit-overflow-scrolling:touch;}
+  .chip{display:flex;align-items:center;gap:8px;width:100%;border:none;border-radius:9px;padding:9px 10px;margin-bottom:6px;
+        background:#182338;color:#fff;font-size:13px;text-align:left;}
+  .chip .code{font-weight:900;font-size:13px;background:#0C1422;border-radius:6px;padding:3px 7px;min-width:36px;text-align:center;}
+  .chip.sel{outline:2px solid var(--gold);}
+  .chip .nm{flex:1;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .chip .run{font-size:9px;font-weight:900;background:#B00020;border-radius:4px;padding:2px 4px;}
+  #stage{flex:1;display:flex;flex-direction:column;min-width:0;}
+  #fieldwrap{flex:1;position:relative;min-height:0;}
+  canvas{position:absolute;inset:0;width:100%;height:100%;}
+  #controls{display:flex;gap:8px;padding:8px 12px;background:#0C1422;align-items:center;flex-shrink:0;flex-wrap:wrap;}
+  .btn{border:none;border-radius:10px;padding:12px 18px;font-size:16px;font-weight:900;color:#fff;background:#182338;}
+  .btn.play{background:var(--gold);color:#10192B;min-width:110px;font-size:18px;}
+  .btn.small{padding:10px 12px;font-size:14px;}
+  #info{background:#0C1422;padding:10px 14px 14px;flex-shrink:0;max-height:32vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  #info h2{margin:0 0 2px;font-size:19px;}
+  #info .meta{color:#9FB4CC;font-size:12px;font-weight:700;margin-bottom:6px;}
+  #info .row{font-size:14px;line-height:1.45;margin-bottom:5px;}
+  #info .lab{font-weight:900;letter-spacing:.3px;font-size:11px;margin-right:6px;padding:2px 6px;border-radius:4px;color:#fff;}
+  .warn{display:inline-block;background:#B00020;color:#fff;font-weight:900;font-size:11px;border-radius:5px;padding:3px 7px;margin-top:2px;}
+  @media (max-width:740px){
+    #list{width:132px;}
+    .chip .nm{display:none;}
+    .chip{justify-content:center;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>U9 ANIMATED PLAYBOOK</h1><span class="sub">100 PLAYS • TAP A PLAY, PRESS ▶</span>
+  </header>
+  <div id="tabs"></div>
+  <div id="main">
+    <div id="list"></div>
+    <div id="stage">
+      <div id="fieldwrap"><canvas id="cv"></canvas></div>
+      <div id="controls">
+        <button class="btn play" id="btnPlay">▶ PLAY</button>
+        <button class="btn small" id="btnSpeed">1x</button>
+        <button class="btn small" id="btnFlip">⇋ Flip</button>
+        <button class="btn small" id="btnRoutes">Routes: ON</button>
+      </div>
+      <div id="info"></div>
+    </div>
+  </div>
+</div>
+<script>
+if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);this.closePath();return this;};}
+const DATA = {"plays": [{"code": "C1", "name": "C DRAG", "series": "C", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [0, 3], [13, 4]], "X": [[12, 0], [12, 1.2], [4.5, 5.7]], "Y": [[8.5, 0], [14.5, 2]], "Z": [[5, 0], [5.5, 13]]}, "motion": null, "paths": [], "mesh": [], "primary": "C", "read": "Slant and arrow pull everyone right - C drags into the traffic's wake. He's the answer when it's messy.", "best": "Man / Blitz / When nothing else is open", "coach": "C snaps it, takes ONE settle step, then sprints the drag.", "run": false}, {"code": "C2", "name": "C HITCH", "series": "C", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [0, 4], [-0.8, 2.6]], "X": [[-12, 0], [-12, 13]], "Y": [[6, 0], [5.1, 13]], "Z": [[12, 0], [12, 13]]}, "motion": null, "paths": [], "mesh": [], "primary": "C", "read": "Everyone sprints deep and empties the field. C sits at 4 yards all alone. Easy money.", "best": "Zone / 2nd and short / Young QB confidence", "coach": "The deep routes are the play - they must sprint like they're getting the ball.", "run": false}, {"code": "C3", "name": "C OUT", "series": "C", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [0, 3], [-15, 3]], "X": [[-12, 0], [-12, 13]], "Y": [[6, 0], [6, 5], [8, 5]], "Z": [[12, 0], [12, 13]]}, "motion": null, "paths": [], "mesh": [], "primary": "C", "read": "X clears the left side. C snaps and bursts to the left flat. One second, ball out.", "best": "Blitz / Panic button / Clock stops (sideline)", "coach": "Teach C: snap, punch out to the flat, head around IMMEDIATELY.", "run": false}, {"code": "C4", "name": "C SEAM", "series": "C", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [-2, 2], [-2.5, 12]], "Z": [[5, 0], [14.5, 2]], "Y": [[8.5, 0], [8.5, 8], [15, 8]], "X": [[12, 0], [12.5, 13]]}, "motion": null, "paths": [], "mesh": [], "primary": "C", "read": "Whole flood goes right, defense flows with it - C sneaks up the LEFT seam. Sleeper touchdown.", "best": "Zone that chases the flood / Once per game", "coach": "C waits ONE count after the snap so the defense commits right first.", "run": false}, {"code": "C5", "name": "C ANGLE", "series": "C", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [-3.5, 2], [3.0, 6.5]], "X": [[-12, 0], [-12, 13]], "Y": [[6, 0], [6, 9], [-13, 10]], "Z": [[12, 0], [12, 13]]}, "motion": null, "paths": [], "mesh": [], "primary": "C", "read": "C breaks out, his defender jumps it, C snaps back inside. Throw on the second break.", "best": "Man / A defender who bites hard", "coach": "Sell the out with eyes and shoulders - the comeback inside is wide open.", "run": false}, {"code": "C6", "name": "C DELAY", "series": "C", "form": "TL", "mirror": false, "formation": {"C": [0, 0], "Z": [-5, 0], "Y": [-8.5, 0], "X": [-12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [0, 0.4], [-4, 5]], "X": [[-12, 0], [-12.5, 13]], "Y": [[-8.5, 0], [-8.5, 8], [-14.0, 13.5]], "Z": [[-5, 0], [-5, 3], [13, 4]]}, "motion": null, "paths": [], "mesh": [], "primary": "C", "read": "C freezes for TWO counts like he's not in the play, then slips into the middle. Defenders forget him.", "best": "Man / Blitz teams that ignore the center", "coach": "The pause is the play. One-thousand-one, one-thousand-two, GO.", "run": false}, {"code": "C7", "name": "C NOW", "series": "C", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [-2.5, -0.8]], "X": [[-12, 0], [-12, 13]], "Y": [[6, 0], [5.1, 13]], "Z": [[12, 0], [12, 13]]}, "motion": null, "paths": [], "mesh": [], "primary": "C", "read": "Snap, C pops left behind the line, ball comes instantly. Verticals clear the grass in front of him.", "best": "Blitz / Free yards vs soft zone", "coach": "C catches it moving forward - one cut, then north.", "run": false}, {"code": "C8", "name": "C WHEEL", "series": "C", "form": "BR", "mirror": false, "formation": {"C": [0, 0], "Y": [8.5, 0], "Z": [6.8, -1.4], "X": [10.2, -1.4], "Q": [0, -5]}, "routes": {"C": [[0, 0], [-13.8, 1.8], [-14.6, 12.5]], "X": [[10.2, -1.4], [10.2, 8], [15.149999999999999, 13.5]], "Y": [[8.5, 0], [8.5, 3], [-13, 4]], "Z": [[6.8, -1.4], [14.5, 2]]}, "motion": null, "paths": [], "mesh": [], "primary": "C", "read": "All eyes go to the bunch. C leaks left and wheels up the empty sideline. Peek him FIRST.", "best": "Man / Teams that never cover the center", "coach": "Save this for when they've stopped guarding C - then take the shot.", "run": false}, {"code": "C9", "name": "C CROSS", "series": "C", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [2, 1.4], [13, 2.8]], "Y": [[6, 0], [6, 1.0], [-1.5, 5.5]], "Z": [[12, 0], [12, 13]], "X": [[-12, 0], [-12, 10], [13, 11]]}, "motion": null, "paths": [], "mesh": [], "primary": "C", "read": "Y's slant crosses right where C's defender wants to run - natural rub. Hit C sprinting away.", "best": "Man / Short yardage", "coach": "C runs UNDER Y's slant - close enough to rub, no contact.", "run": false}, {"code": "C10", "name": "C STICK", "series": "C", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [0, 5], [-2, 5]], "Z": [[5, 0], [14.5, 2]], "Y": [[8.5, 0], [8.5, 8], [14.0, 13.5]], "X": [[12, 0], [12.5, 13]]}, "motion": null, "paths": [], "mesh": [], "primary": "C", "read": "Trips pulls the defense right. C sticks at 5 on the weak side, slides to grass. First look.", "best": "Zone / 3rd and 4 / Trust throw", "coach": "Stick means SIT - find the window, stop, show numbers.", "run": false}, {"code": "C11", "name": "C SLANT", "series": "C", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [0, 1.2], [7.5, 5.7]], "X": [[-12, 0], [-12, 13]], "Y": [[6, 0], [14.5, 2]], "Z": [[12, 0], [12, 13]]}, "motion": null, "paths": [], "mesh": [], "primary": "C", "read": "Y clears to the flat; C slants right into the vacated grass. Quick rhythm throw.", "best": "Man / Blitz", "coach": "C's slant starts on his SECOND step after the snap - snap, step, break.", "run": false}, {"code": "C12", "name": "C POP", "series": "C", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [0.6, 1.8]], "X": [[-12, 0], [-12, 13]], "Y": [[6, 0], [5.1, 13]], "Z": [[12, 0], [12, 13]]}, "motion": null, "paths": [], "mesh": [], "primary": "C", "read": "Snap, C pops one yard over the middle, ball arrives instantly. Verticals empty the middle.", "best": "Blitz / Goal line / No-run zone sneak substitute", "coach": "Fastest play in the book - great inside the no-run zone.", "run": false}, {"code": "C13", "name": "C OPTION", "series": "C", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [0, 4], [3, 4.5]], "X": [[-12, 0], [-12, 13]], "Z": [[12, 0], [12, 13]], "Y": [[6, 0], [14.5, 2]]}, "motion": null, "paths": [], "mesh": [], "primary": "C", "read": "C runs to 4 and breaks AWAY from whoever covers him - in or out. Q throws off his break.", "best": "Man / Your smartest center", "coach": "Rule: defender inside = break out; outside = break in.", "run": false}, {"code": "C14", "name": "C SHAKE", "series": "C", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [0, 4.5], [0.9, 3.9], [1.3, 13]], "X": [[-12, 0], [-12, 13]], "Z": [[12, 0], [12, 13]], "Y": [[6, 0], [14.5, 2]]}, "motion": null, "paths": [], "mesh": [], "primary": "C", "read": "C fakes the C10 stick - sits, then takes off up the seam. The LB drives down = he's gone.", "best": "After C sticks/hitches have worked", "coach": "The sit must look real: full stop, show numbers, GO.", "run": false}, {"code": "C15", "name": "C SWING", "series": "C", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [3, -1.5], [9, -0.8], [14, 1.5]], "X": [[-12, 0], [-12, 13]], "Y": [[6, 0], [5.1, 13]], "Z": [[12, 0], [12, 13]]}, "motion": null, "paths": [], "mesh": [], "primary": "C", "read": "C swings wide right behind the line like a running back. Verticals clear - catch and turn upfield.", "best": "Blitz / Getting C in space", "coach": "Run the arc at full speed - QB leads him to the sideline.", "run": false}, {"code": "C16", "name": "OUT RT", "series": "C", "form": "SP", "mirror": true, "base": "C3", "read": "Mirror of C3. X clears the left side. C snaps and bursts to the left flat. One second, ball out.", "best": "Blitz / Panic button / Clock stops (sideline)", "coach": "Teach C: snap, punch out to the flat, head around IMMEDIATELY.", "run": false}, {"code": "C17", "name": "SEAM RT", "series": "C", "form": "TR", "mirror": true, "base": "C4", "read": "Mirror of C4. Whole flood goes right, defense flows with it - C sneaks up the LEFT seam. Sleeper touchdown.", "best": "Zone that chases the flood / Once per game", "coach": "C waits ONE count after the snap so the defense commits right first.", "run": false}, {"code": "C18", "name": "DELAY RT", "series": "C", "form": "TL", "mirror": true, "base": "C6", "read": "Mirror of C6. C freezes for TWO counts like he's not in the play, then slips into the middle. Defenders forget him.", "best": "Man / Blitz teams that ignore the center", "coach": "The pause is the play. One-thousand-one, one-thousand-two, GO.", "run": false}, {"code": "C19", "name": "WHEEL RT", "series": "C", "form": "BR", "mirror": true, "base": "C8", "read": "Mirror of C8. All eyes go to the bunch. C leaks left and wheels up the empty sideline. Peek him FIRST.", "best": "Man / Teams that never cover the center", "coach": "Save this for when they've stopped guarding C - then take the shot.", "run": false}, {"code": "C20", "name": "CROSS LT", "series": "C", "form": "SP", "mirror": true, "base": "C9", "read": "Mirror of C9. Y's slant crosses right where C's defender wants to run - natural rub. Hit C sprinting away.", "best": "Man / Short yardage", "coach": "C runs UNDER Y's slant - close enough to rub, no contact.", "run": false}, {"code": "R1", "name": "JET RIGHT", "series": "R", "form": "TL", "mirror": false, "formation": {"C": [0, 0], "Z": [-5, 0], "Y": [-8.5, 0], "X": [-12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [14.5, 1.5]], "X": [[-12, 0], [-12.5, 13]], "Y": [[-8.5, 0], [-8.5, 1.2], [-1.0, 5.7]]}, "motion": {"player": "Z", "pts": [[-5, -0.9], [-1, -0.9]]}, "paths": [{"player": "Z", "pts": [[-1, -0.9], [3, -2.2], [9, -0.5], [13.5, 4.5]]}], "mesh": [[1, -1.6]], "primary": "Z", "read": "Mirror of Z1. Z jets right, takes the flip at full speed, turns the corner. C's flat route drags the edge defender.", "best": "Man / Weak right edge / Both-edges balance", "coach": "Run Jet LEFT (Z1) and Jet RIGHT equally so defenses can't cheat one way.", "run": true}, {"code": "R2", "name": "X REVERSE", "series": "R", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Y": [[6, 0], [6.5, 13]], "C": [[0, 0], [0, 4], [-0.8, 2.6]]}, "motion": {"player": "Z", "pts": [[12, -0.9], [2, -0.9]]}, "paths": [{"player": "Z", "pts": [[2, -0.9], [-3, -2.2], [-7, -2.6]]}, {"player": "X", "pts": [[-12, 0], [-9.5, -2.6], [-7, -2.6], [2, -1.5], [9, 0.5], [14, 5]]}], "mesh": [[1, -1.6], [-7, -2.6]], "primary": "X", "read": "Jet Sweep left... then Z hands it BACK to X sprinting right. The whole defense chases Z the wrong way.", "best": "Fast-flow defenses / After Jet Sweep has hit twice", "coach": "Z carries the fake 3 more steps AFTER the handoff. X takes it slightly backward, then turns on the jets.", "run": true}, {"code": "R3", "name": "FAKE REVERSE", "series": "R", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Y": [[6, 0], [6.5, 13]], "C": [[0, 0], [-14.5, 1.5]]}, "motion": {"player": "Z", "pts": [[12, -0.9], [2, -0.9]]}, "paths": [{"player": "Z", "pts": [[2, -0.9], [-3, -2.2], [-7, -2.4], [-11, -0.5], [-14, 4]]}, {"player": "X", "pts": [[-12, 0], [-9.5, -2.6], [-6, -2.2], [4, -1.2]]}], "mesh": [[1, -1.6]], "primary": "Z", "read": "Looks exactly like X Reverse - but Z FAKES the handoff and keeps sweeping left. Defenders who learned the reverse freeze.", "best": "Right after X Reverse has scored / Smart defenses", "coach": "X must sell it: pump the arms and sprint right like he has the ball.", "run": true}, {"code": "R4", "name": "Y COUNTER", "series": "R", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"X": [[-12, 0], [-12.5, 13]], "C": [[0, 0], [-14.5, 1.5]]}, "motion": {"player": "Z", "pts": [[12, -0.9], [3, -0.9]]}, "paths": [{"player": "Z", "pts": [[3, -0.9], [-2, -2], [-8, -1]]}, {"player": "Y", "pts": [[6, 0], [3.5, -2.5], [0.8, -3.6], [6, -2], [11, 0], [14, 4]]}], "mesh": [[1, -3.4]], "primary": "Y", "read": "Fake the jet flip to Z going left - defense flows left - then hand to Y cutting back RIGHT off the mesh.", "best": "Over-pursuing defenses / Teams that chase jet motion", "coach": "Y is PATIENT: two slow steps in, then explode out the back door.", "run": true}, {"code": "R5", "name": "Z BLAST", "series": "R", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"X": [[-12, 0], [-12, 13]], "Y": [[6, 0], [5.1, 13]], "C": [[0, 0], [1.2, 12]]}, "motion": {"player": "Z", "pts": [[12, -0.9], [4, -2.5]]}, "paths": [{"player": "Z", "pts": [[4, -2.5], [1.5, -3.8], [-0.8, -2], [-0.8, 6]]}], "mesh": [[1.2, -3.6]], "primary": "Z", "read": "All three receivers sprint deep and take their defenders with them. Z takes a downhill handoff straight up the empty middle.", "best": "Man / Short yardage OUTSIDE the no-run zone", "coach": "North-south only. One cut maximum - burst through the grass, don't dance.", "run": true}, {"code": "R6", "name": "C SWEEP", "series": "R", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"Z": [[5, 0], [5.3, 13]], "Y": [[8.5, 0], [8.8, 13]], "X": [[12, 0], [12.3, 13]]}, "motion": null, "paths": [{"player": "C", "pts": [[0, 0], [2, -2.6], [0, -4.4], [-6, -3], [-12, -0.5], [-14.5, 3.5]]}], "mesh": [[0.6, -4.3]], "primary": "C", "read": "Nobody covers the center. C snaps, loops around the QB for the handoff, and sweeps the weak edge while trips clears out.", "best": "Any defense that ignores C / Change of pace", "coach": "C's loop must be smooth: snap, turn, run the arc - never stop moving.", "run": true}, {"code": "R7", "name": "Y ORBIT PITCH", "series": "R", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"X": [[-12, 0], [-12, 13]], "Z": [[12, 0], [12, 1.2], [4.5, 5.7]], "C": [[0, 0], [-14.5, 1.5]]}, "motion": {"player": "Y", "pts": [[6, -0.9], [2.5, -3], [-1, -4.2]]}, "paths": [{"player": "Y", "pts": [[-1, -4.2], [4, -3.8], [10, -1.5], [14, 3]]}], "mesh": [[1.5, -4.2]], "primary": "Y", "read": "Y orbits behind the QB before the snap. Snap, soft pitch, and Y attacks the right edge with a running start.", "best": "Man / Getting your shiftiest kid the ball wide", "coach": "Pitch is soft, chest-high, and LEADS Y. Y catches it looking the ball in.", "run": true}, {"code": "R8", "name": "X END AROUND", "series": "R", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Z": [[12, 0], [12.3, 13]], "Y": [[6, 0], [6.3, 13]], "C": [[0, 0], [0, 4], [-0.8, 2.6]]}, "motion": null, "paths": [{"player": "X", "pts": [[-12, 0], [-9, -3], [-1.5, -4.2], [5, -2.5], [11, -0.5], [14, 4]]}], "mesh": [[-1.5, -4.2]], "primary": "X", "read": "No motion tip-off: at the snap X sprints across behind the QB, takes the handoff, and circles the right end.", "best": "Defenses keyed on jet motion / When motion rules are tight", "coach": "Slower than jet - X must be full speed by the mesh. QB extends the ball, X takes it clean.", "run": true}, {"code": "R9", "name": "C TRAP", "series": "R", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"X": [[12, 0], [12.5, 13]], "Y": [[8.5, 0], [8.5, 6], [15, 6]]}, "motion": {"player": "Z", "pts": [[5, -0.9], [-2, -0.9]]}, "paths": [{"player": "Z", "pts": [[-2, -0.9], [-7, -1.8], [-12, -0.5]]}, {"player": "C", "pts": [[0, 0], [0.8, -1.6], [-1.8, -2.4], [-2.5, 1], [-2.5, 6.5]]}], "mesh": [[-1.8, -2.3]], "primary": "C", "read": "Fake the jet to Z sweeping left - then slip the ball to C knifing back up the middle behind the fake.", "best": "Edges overplayed / Sneaky short-yardage", "coach": "Timing: C snaps, drops ONE step, takes the inside handoff as the jet fake passes.", "run": true}, {"code": "R10", "name": "DOUBLE REVERSE", "series": "R", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [0, 4], [-0.8, 2.6]]}, "motion": {"player": "Z", "pts": [[12, -0.9], [2, -0.9]]}, "paths": [{"player": "Z", "pts": [[2, -0.9], [-3, -2.2], [-7, -2.6]]}, {"player": "X", "pts": [[-12, 0], [-9.5, -2.8], [-7, -2.6], [-1, -3.4], [3, -3.6]]}, {"player": "Y", "pts": [[6, 0], [6.5, -2.2], [3, -3.6], [-4, -2.5], [-11, -0.5], [-14, 4]]}], "mesh": [[-7, -2.6], [3, -3.6]], "primary": "Y", "read": "The trick play: Z jets left, hands to X reversing right, X hands to Y reversing back LEFT. Save it for one big moment.", "best": "Once per season / When they have fully bought the reverse", "coach": "Practice it 10 times before you ever call it. Both handoffs are two-hands-on-the-ball.", "run": true}, {"code": "R11", "name": "ORBIT PITCH LT", "series": "R", "form": "SP", "mirror": true, "base": "R7", "read": "Mirror of R7. Y orbits behind the QB before the snap. Snap, soft pitch, and Y attacks the right edge with a running start.", "best": "Man / Getting your shiftiest kid the ball wide", "coach": "Pitch is soft, chest-high, and LEADS Y. Y catches it looking the ball in.", "run": true}, {"code": "R12", "name": "END AROUND LT", "series": "R", "form": "SP", "mirror": true, "base": "R8", "read": "Mirror of R8. No motion tip-off: at the snap X sprints across behind the QB, takes the handoff, and circles the right end.", "best": "Defenses keyed on jet motion / When motion rules are tight", "coach": "Slower than jet - X must be full speed by the mesh. QB extends the ball, X takes it clean.", "run": true}, {"code": "R13", "name": "Y COUNTER LT", "series": "R", "form": "SP", "mirror": true, "base": "R4", "read": "Mirror of R4. Fake the jet flip to Z going left - defense flows left - then hand to Y cutting back RIGHT off the mesh.", "best": "Over-pursuing defenses / Teams that chase jet motion", "coach": "Y is PATIENT: two slow steps in, then explode out the back door.", "run": true}, {"code": "R14", "name": "X REVERSE LT", "series": "R", "form": "SP", "mirror": true, "base": "R2", "read": "Mirror of R2. Jet Sweep left... then Z hands it BACK to X sprinting right. The whole defense chases Z the wrong way.", "best": "Fast-flow defenses / After Jet Sweep has hit twice", "coach": "Z carries the fake 3 more steps AFTER the handoff. X takes it slightly backward, then turns on the jets.", "run": true}, {"code": "R15", "name": "FAKE REVERSE LT", "series": "R", "form": "SP", "mirror": true, "base": "R3", "read": "Mirror of R3. Looks exactly like X Reverse - but Z FAKES the handoff and keeps sweeping left. Defenders who learned the reverse freeze.", "best": "Right after X Reverse has scored / Smart defenses", "coach": "X must sell it: pump the arms and sprint right like he has the ball.", "run": true}, {"code": "R16", "name": "C GIVE", "series": "R", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"X": [[12, 0], [12.3, 13]], "Y": [[8.5, 0], [8.8, 13]], "Z": [[5, 0], [5.3, 13]]}, "motion": null, "paths": [{"player": "C", "pts": [[0, 0], [0.8, -1.8], [-0.6, -2.4], [-0.6, 6]]}], "mesh": [[0.1, -2.2]], "primary": "C", "read": "No fake, no frills: C snaps, spins, takes the give, and hits the middle while trips sprints deep.", "best": "Quick-hitter / Defenses spread wide by trips", "coach": "Snap, reverse pivot, ball tucked, north.", "run": true}, {"code": "R17", "name": "JET LEAD", "series": "R", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [0, 4], [-0.8, 2.6]], "X": [[-12, 0], [-12, 13]]}, "motion": {"player": "Z", "pts": [[12, -0.9], [2, -0.9]]}, "paths": [{"player": "Z", "pts": [[2, -0.9], [-3, -2.2], [-9, -0.5], [-13.5, 4.5]]}, {"player": "Y", "pts": [[6, 0], [-2, 1.2], [-11, 2]]}], "mesh": [[1, -1.6]], "primary": "Z", "read": "Jet Sweep left with an escort: Y runs a flat route AHEAD of Z, dragging his defender out of the lane.", "best": "Man / When Z1 is getting strung out", "coach": "Y runs a ROUTE, not a block - his path clears the alley legally.", "run": true}, {"code": "R18", "name": "Z ORBIT PITCH", "series": "R", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"X": [[-12, 0], [-12, 13]], "Y": [[6, 0], [6, 1.2], [-1.5, 5.7]], "C": [[0, 0], [14.5, 1.5]]}, "motion": {"player": "Z", "pts": [[12, -0.9], [8, -3], [3, -4.3]]}, "paths": [{"player": "Z", "pts": [[3, -4.3], [8, -3.5], [12, -1.2], [14.5, 3]]}], "mesh": [[4.5, -4.2]], "primary": "Z", "read": "Z orbits deep behind the QB, takes the soft pitch already at full speed, and attacks the right edge.", "best": "Man / Mirror answer to R7", "coach": "Same rules as R7: soft chest-high pitch that LEADS the runner.", "run": true}, {"code": "R19", "name": "Y SWEEP", "series": "R", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"X": [[-12, 0], [-12, 13]], "Z": [[12, 0], [12, 1.2], [4.5, 5.7]], "C": [[0, 0], [-14.5, 1.5]]}, "motion": {"player": "Y", "pts": [[6, -0.9], [3, -0.9]]}, "paths": [{"player": "Y", "pts": [[3, -0.9], [-2, -2], [-8, -0.5], [-13, 4]]}], "mesh": [[1.2, -1.6]], "primary": "Y", "read": "Short jet from the slot: Y is only 3 steps from the mesh, so the flip is faster and safer than Z's.", "best": "Man / A shifty Y / Safer jet for wet days", "coach": "Shorter motion = easier exchange. Great first sweep to install.", "run": true}, {"code": "R20", "name": "DOUBLE REV RT", "series": "R", "form": "SP", "mirror": true, "base": "R10", "read": "Mirror of R10. The trick play: Z jets left, hands to X reversing right, X hands to Y reversing back LEFT. Save it for one big moment.", "best": "Once per season / When they have fully bought the reverse", "coach": "Practice it 10 times before you ever call it. Both handoffs are two-hands-on-the-ball.", "run": true}, {"code": "X1", "name": "X SLANT", "series": "X", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"X": [[12, 0], [12, 1.2], [4.5, 5.7]], "Y": [[8.5, 0], [14.5, 2]], "Z": [[5, 0], [5.5, 13]], "C": [[0, 0], [0, 3], [13, 4]]}, "motion": null, "paths": [], "mesh": [], "primary": "X", "read": "Watch Y's defender: chases the flat = throw X slant. Sits = throw Y flat.", "best": "Man / Blitz / 1st down", "coach": "Slant stays FLAT across the defender's face - no drifting upfield.", "run": false}, {"code": "X2", "name": "X CORNER", "series": "X", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"X": [[-12, 0], [-12, 9], [-17.5, 14.5]], "C": [[0, 0], [0, 4], [-0.8, 2.6]], "Y": [[6, 0], [5.1, 13]], "Z": [[12, 0], [12, 5], [11.2, 3.6]]}, "motion": null, "paths": [], "mesh": [], "primary": "X", "read": "Deep defender backs up = throw C hitch now. He jumps the hitch = X corner behind him.", "best": "Cover 2 / Zone / Red zone", "coach": "Corner break is 45 degrees TO THE PYLON, never flat.", "run": false}, {"code": "X3", "name": "X POST", "series": "X", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"X": [[12, 0], [12, 9], [6, 14.5]], "Y": [[8.5, 0], [8.5, 5], [15, 5]], "Z": [[5, 0], [14.5, 2]], "C": [[0, 0], [0, 4], [-0.8, 2.6]]}, "motion": null, "paths": [], "mesh": [], "primary": "X", "read": "Y and Z pull defenders wide. If the middle is empty = X post. Covered = Y out.", "best": "Cover 3 / Man with no safety", "coach": "X sells the go for 8 yards BEFORE bending to the post.", "run": false}, {"code": "X4", "name": "X HITCH & GO", "series": "X", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"X": [[-12, 0], [-12, 5], [-11.3, 4.2], [-11.72, 14]], "Y": [[6, 0], [6, 5], [8, 5]], "Z": [[12, 0], [12, 13]], "C": [[0, 0], [-14.5, 2]]}, "motion": null, "paths": [], "mesh": [], "primary": "X", "read": "Q pump-fakes the hitch. Defender bites = throw the go. He doesn't = Y stick.", "best": "Man / A corner who jumps hitches", "coach": "Run this only AFTER hitches have been completed earlier in the game.", "run": false}, {"code": "X5", "name": "X SHALLOW", "series": "X", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"X": [[-12, 0], [-10, 1.4], [13, 2.8]], "Y": [[6, 0], [6.5, 13]], "Z": [[12, 0], [12, 9], [-13, 10]], "C": [[0, 0], [0, 5], [1.5, 5]]}, "motion": null, "paths": [], "mesh": [], "primary": "X", "read": "Stay with X crossing. His man gets caught in traffic = throw it on the move. Covered = C.", "best": "Man / Blitz / YAC", "coach": "X catches it RUNNING full speed - catch first, then burst.", "run": false}, {"code": "X6", "name": "X COMEBACK", "series": "X", "form": "TL", "mirror": false, "formation": {"C": [0, 0], "Z": [-5, 0], "Y": [-8.5, 0], "X": [-12, 0], "Q": [0, -5]}, "routes": {"X": [[-12, 0], [-12, 10], [-14, 7.2]], "Y": [[-8.5, 0], [-8.5, 8], [-3.0, 13.5]], "Z": [[-5, 0], [-14.5, 2]], "C": [[0, 0], [0, 3], [-13, 4]]}, "motion": null, "paths": [], "mesh": [], "primary": "X", "read": "X sells the go 3 hard steps, snaps back. Throw on his break. Late = Z flat.", "best": "Man / Soft corner playing deep", "coach": "Q throws BEFORE X turns around - trust the timing.", "run": false}, {"code": "X7", "name": "X FADE", "series": "X", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"X": [[-12, 0], [-13.5, 12]], "C": [[0, 0], [0, 1.2], [7.5, 5.7]], "Y": [[6, 0], [14.5, 1.5]], "Z": [[12, 0], [12, 1.2], [4.5, 5.7]]}, "motion": null, "paths": [], "mesh": [], "primary": "X", "read": "One-on-one outside = throw X to the pylon, high and outside. Doubled = C slant.", "best": "Goal line / Man", "coach": "Throw where only X can get it - back pylon, over the outside shoulder.", "run": false}, {"code": "X8", "name": "X DIG", "series": "X", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"X": [[12, 0], [12, 10], [-13, 11]], "Y": [[8.5, 0], [8.5, 8], [14.0, 13.5]], "Z": [[5, 0], [14.5, 2]], "C": [[0, 0], [0, 3], [-0.8, 1.6]]}, "motion": null, "paths": [], "mesh": [], "primary": "X", "read": "Y's corner route lifts the deep defender. Throw X coming across at 10 behind the traffic.", "best": "Zone / 3rd and long", "coach": "X runs the dig at FULL depth - 10 yards, not 6.", "run": false}, {"code": "X9", "name": "X NOW", "series": "X", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"X": [[-12, 0], [-13.5, -1]], "C": [[0, 0], [0.8, 13]], "Y": [[6, 0], [6, 13]], "Z": [[12, 0], [12, 13]]}, "motion": null, "paths": [], "mesh": [], "primary": "X", "read": "Snap and throw to X immediately - no read. Everyone else sprints deep to clear space.", "best": "Blitz / Soft corner / Free yards", "coach": "Ball out in under 1 second. X catches, then attacks upfield.", "run": false}, {"code": "X10", "name": "X WHEEL", "series": "X", "form": "BR", "mirror": false, "formation": {"C": [0, 0], "Y": [8.5, 0], "Z": [6.8, -1.4], "X": [10.2, -1.4], "Q": [0, -5]}, "routes": {"X": [[10.2, -1.4], [13.8, 1.8], [14.6, 12.5]], "Y": [[8.5, 0], [8.5, 8], [3.55, 13.5]], "Z": [[6.8, -1.4], [6.8, 2.5], [-13, 3.5]], "C": [[0, 0], [0, 4], [-0.8, 2.6]]}, "motion": null, "paths": [], "mesh": [], "primary": "X", "read": "Bunch traffic hides X. He leaks to the flat then turns up the sideline. Look deep off Z's drag.", "best": "Man / Bunch confusion", "coach": "X whispers to the sideline first 3 steps - THEN sprints the wheel.", "run": false}, {"code": "X11", "name": "X CURL", "series": "X", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"X": [[12, 0], [12, 10], [10.2, 8.2]], "Z": [[5, 0], [14.5, 2]], "Y": [[8.5, 0], [7.225, 13]], "C": [[0, 0], [0, 3], [-13, 4]]}, "motion": null, "paths": [], "mesh": [], "primary": "X", "read": "Z pulls the flat man wide. X curls into the window at 10. Late = C drag.", "best": "Zone / 2nd and long", "coach": "Curl back DOWNHILL toward the QB - attack the ball.", "run": false}, {"code": "X12", "name": "X OUT", "series": "X", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"X": [[-12, 0], [-12, 10], [-15, 10]], "C": [[0, 0], [0, 4], [-0.8, 2.6]], "Y": [[6, 0], [5.1, 13]], "Z": [[12, 0], [12, 13]]}, "motion": null, "paths": [], "mesh": [], "primary": "X", "read": "One-on-one left: X breaks to the sideline at 10. Throw on the break, outside shoulder.", "best": "Man / Sideline clock throw", "coach": "Snap the head around - ball arrives fast.", "run": false}, {"code": "X13", "name": "X SLUGGO", "series": "X", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"X": [[-12, 0], [-12, 1.2], [-8.5, 3.5], [-7.2, 14]], "C": [[0, 0], [-14.5, 2]], "Y": [[6, 0], [6, 5], [8, 5]], "Z": [[12, 0], [12, 13]]}, "motion": null, "paths": [], "mesh": [], "primary": "X", "read": "Slant-and-go. Q pump-fakes the slant; when the defender jumps it, X takes off deep.", "best": "Man / A corner who jumped X1 all game", "coach": "Only call after X1 Slant has completed twice.", "run": false}, {"code": "X14", "name": "X POST-CORNER", "series": "X", "form": "TL", "mirror": false, "formation": {"C": [0, 0], "Z": [-5, 0], "Y": [-8.5, 0], "X": [-12, 0], "Q": [0, -5]}, "routes": {"X": [[-12, 0], [-12, 7], [-9.5, 9], [-14, 13.5]], "Y": [[-8.5, 0], [-14.5, 2]], "Z": [[-5, 0], [-5, 3], [13, 4]], "C": [[0, 0], [0, 4], [-0.8, 2.6]]}, "motion": null, "paths": [], "mesh": [], "primary": "X", "read": "Double move: fake the post inside, break back to the corner. Throw to the pylon.", "best": "Man / Deep defender who bites inside", "coach": "Two moves, full speed both - no coasting.", "run": false}, {"code": "X15", "name": "X TEXAS", "series": "X", "form": "BR", "mirror": false, "formation": {"C": [0, 0], "Y": [8.5, 0], "Z": [6.8, -1.4], "X": [10.2, -1.4], "Q": [0, -5]}, "routes": {"X": [[10.2, -1.4], [13.7, 2], [7.199999999999999, 6.5]], "Y": [[8.5, 0], [8.5, 8], [14.0, 13.5]], "Z": [[6.8, -1.4], [-14.5, 2]], "C": [[0, 0], [0, 4], [-0.8, 2.6]]}, "motion": null, "paths": [], "mesh": [], "primary": "X", "read": "X angles out then snaps back inside underneath the bunch traffic. Throw the second break.", "best": "Man / Short yardage", "coach": "Sell the out hard - the inside break is the play.", "run": false}, {"code": "X16", "name": "SLANT LT", "series": "X", "form": "TR", "mirror": true, "base": "X1", "read": "Mirror of X1. Watch Y's defender: chases the flat = throw X slant. Sits = throw Y flat.", "best": "Man / Blitz / 1st down", "coach": "Slant stays FLAT across the defender's face - no drifting upfield.", "run": false}, {"code": "X17", "name": "CORNER RT", "series": "X", "form": "SP", "mirror": true, "base": "X2", "read": "Mirror of X2. Deep defender backs up = throw C hitch now. He jumps the hitch = X corner behind him.", "best": "Cover 2 / Zone / Red zone", "coach": "Corner break is 45 degrees TO THE PYLON, never flat.", "run": false}, {"code": "X18", "name": "POST LT", "series": "X", "form": "TR", "mirror": true, "base": "X3", "read": "Mirror of X3. Y and Z pull defenders wide. If the middle is empty = X post. Covered = Y out.", "best": "Cover 3 / Man with no safety", "coach": "X sells the go for 8 yards BEFORE bending to the post.", "run": false}, {"code": "X19", "name": "SHALLOW RT", "series": "X", "form": "SP", "mirror": true, "base": "X5", "read": "Mirror of X5. Stay with X crossing. His man gets caught in traffic = throw it on the move. Covered = C.", "best": "Man / Blitz / YAC", "coach": "X catches it RUNNING full speed - catch first, then burst.", "run": false}, {"code": "X20", "name": "FADE RT", "series": "X", "form": "SP", "mirror": true, "base": "X7", "read": "Mirror of X7. One-on-one outside = throw X to the pylon, high and outside. Doubled = C slant.", "best": "Goal line / Man", "coach": "Throw where only X can get it - back pylon, over the outside shoulder.", "run": false}, {"code": "Y1", "name": "Y STICK", "series": "Y", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Y": [[6, 0], [6, 5], [8, 5]], "Z": [[12, 0], [12, 13]], "X": [[-12, 0], [-12, 10], [13, 11]], "C": [[0, 0], [-14.5, 2]]}, "motion": null, "paths": [], "mesh": [], "primary": "Y", "read": "Z clears the deep man. Y bursts to 5, sits in grass. Defender on him = C in the flat.", "best": "Zone / 3rd and 4-6 / Safe ball", "coach": "Stick = STOP and show the QB your numbers. Slide to open grass, don't drift.", "run": false}, {"code": "Y2", "name": "Y OUT", "series": "Y", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"Y": [[8.5, 0], [8.5, 8], [15, 8]], "X": [[12, 0], [12.5, 13]], "Z": [[5, 0], [14.5, 2]], "C": [[0, 0], [0, 4], [-0.8, 2.6]]}, "motion": null, "paths": [], "mesh": [], "primary": "Y", "read": "Flood: three levels right. Deep X first if wide open, then Y out at 8, then Z flat.", "best": "Zone / Cover 3", "coach": "Three different depths on ONE sideline - one defender can't take two.", "run": false}, {"code": "Y3", "name": "Y CORNER", "series": "Y", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Y": [[6, 0], [6, 9], [11.5, 14.5]], "Z": [[12, 0], [12, 4], [11.2, 2.6]], "X": [[-12, 0], [-12, 9], [-6, 14.5]], "C": [[0, 0], [-14.5, 2]]}, "motion": null, "paths": [], "mesh": [], "primary": "Y", "read": "Smash right: corner over the hitch. Flat defender squats on Z = Y corner behind him.", "best": "Cover 2 / Red zone", "coach": "Y attacks the deep defender's toes before breaking to the flag.", "run": false}, {"code": "Y4", "name": "Y SEAM", "series": "Y", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Y": [[6, 0], [5.1, 13]], "X": [[-12, 0], [-12, 13]], "Z": [[12, 0], [12, 13]], "C": [[0, 0], [0, 3.5], [-0.8, 2.1]]}, "motion": null, "paths": [], "mesh": [], "primary": "Y", "read": "Four verticals. Middle open = rip it to Y's seam past the rusher. Not there = C checkdown.", "best": "Cover 3 / Single safety / Must-score", "coach": "Y stays skinny up the hash - do NOT wander toward the sideline runners.", "run": false}, {"code": "Y5", "name": "Y ARROW", "series": "Y", "form": "TL", "mirror": false, "formation": {"C": [0, 0], "Z": [-5, 0], "Y": [-8.5, 0], "X": [-12, 0], "Q": [0, -5]}, "routes": {"Y": [[-8.5, 0], [-14.5, 2]], "X": [[-12, 0], [-12, 1.2], [-4.5, 5.7]], "Z": [[-5, 0], [-5.5, 13]], "C": [[0, 0], [0, 3], [-13, 4]]}, "motion": null, "paths": [], "mesh": [], "primary": "Y", "read": "Same read as X Slant, flipped: flat defender sits = Y arrow. He chases = X slant.", "best": "Man / Blitz / Quick game", "coach": "Y snaps his head around at the break - the ball comes out FAST.", "run": false}, {"code": "Y6", "name": "Y CROSS", "series": "Y", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"Y": [[8.5, 0], [6.5, 1.4], [-13, 2.8]], "Z": [[5, 0], [5.5, 13]], "X": [[12, 0], [12, 10], [-13, 11]], "C": [[0, 0], [0, 4], [1.5, 4]]}, "motion": null, "paths": [], "mesh": [], "primary": "Y", "read": "Y sprints shallow across. In man his defender trails - lead him. In zone he sits past the traffic.", "best": "Man / YAC for your fastest kid", "coach": "Full speed across - a jogging crosser is a covered crosser.", "run": false}, {"code": "Y7", "name": "Y OPTION", "series": "Y", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Y": [[6, 0], [6, 5], [9.5, 5.6]], "X": [[-12, 0], [-12, 13]], "Z": [[12, 0], [12, 13]], "C": [[0, 0], [-14.5, 2]]}, "motion": null, "paths": [], "mesh": [], "primary": "Y", "read": "Y runs to 5 and breaks AWAY from his defender - in or out. Q waits for the break, then throws.", "best": "Man / Your smartest receiver", "coach": "Rule for Y: defender inside = break out. Defender outside = break in.", "run": false}, {"code": "Y8", "name": "Y WHEEL", "series": "Y", "form": "BR", "mirror": false, "formation": {"C": [0, 0], "Y": [8.5, 0], "Z": [6.8, -1.4], "X": [10.2, -1.4], "Q": [0, -5]}, "routes": {"Y": [[8.5, 0], [13.8, 1.8], [14.6, 12.5]], "Z": [[6.8, -1.4], [6.8, 2.5], [-13, 3.5]], "X": [[10.2, -1.4], [10.2, 8], [5.799999999999999, 13.5]], "C": [[0, 0], [0, 4], [-0.8, 2.6]]}, "motion": null, "paths": [], "mesh": [], "primary": "Y", "read": "Bunch releases: Z drags, X corners, Y sneaks the wheel. Peek wheel first, then Z underneath.", "best": "Man / After you've shown bunch drags", "coach": "Y hides behind the bunch traffic for 2 steps before turning up.", "run": false}, {"code": "Y9", "name": "Y CURL", "series": "Y", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"Y": [[8.5, 0], [8.5, 8], [6.7, 6.2]], "Z": [[5, 0], [14.5, 2]], "X": [[12, 0], [12.5, 13]], "C": [[0, 0], [0, 3], [-13, 4]]}, "motion": null, "paths": [], "mesh": [], "primary": "Y", "read": "Curl-flat: Z pulls the flat defender wide, Y curls into the window behind him.", "best": "Zone / Cover 3 / 2nd and medium", "coach": "Y turns INSIDE and steps back toward Q. Attack the ball in the air.", "run": false}, {"code": "Y10", "name": "Y POST", "series": "Y", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Y": [[6, 0], [6, 8], [0, 13.5]], "Z": [[12, 0], [12, 8], [17.5, 13.5]], "X": [[-12, 0], [-12, 5], [-11.2, 3.6]], "C": [[0, 0], [-14.5, 2]]}, "motion": null, "paths": [], "mesh": [], "primary": "Y", "read": "Y and Z scissor: post crosses corner. The deep man can only take one - throw the other.", "best": "Single safety / Man / Shot play", "coach": "Y and Z cross paths at full speed - the crossing IS the play.", "run": false}, {"code": "Y11", "name": "Y OUT-N-UP", "series": "Y", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"Y": [[8.5, 0], [8.5, 6], [12, 6], [13.5, 14]], "Z": [[5, 0], [14.5, 2]], "X": [[12, 0], [12, 9], [6, 14.5]], "C": [[0, 0], [0, 4], [-0.8, 2.6]]}, "motion": null, "paths": [], "mesh": [], "primary": "Y", "read": "Fake the Y2 out, then turn up the sideline. When they start jumping Y2, this is the counter.", "best": "Man / After Y2 Out has worked", "coach": "Plant hard on the fake out - make it look identical to Y2.", "run": false}, {"code": "Y12", "name": "Y WHIP", "series": "Y", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Y": [[6, 0], [6, 1.5], [3, 2.5], [9, 3], [14.5, 3.5]], "X": [[-12, 0], [-12, 13]], "Z": [[12, 0], [12, 13]], "C": [[0, 0], [0, 4], [-0.8, 2.6]]}, "motion": null, "paths": [], "mesh": [], "primary": "Y", "read": "Y fakes inside, whips back out to the flat. His man gets turned around - throw it wide.", "best": "Man / Sticky inside defender", "coach": "The inside fake is 2 hard steps, not a lean.", "run": false}, {"code": "Y13", "name": "Y DEEP CROSS", "series": "Y", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"Y": [[8.5, 0], [8.5, 3], [-10, 9]], "Z": [[5, 0], [14.5, 2]], "X": [[12, 0], [12.5, 13]], "C": [[0, 0], [0, 4], [-1.5, 4]]}, "motion": null, "paths": [], "mesh": [], "primary": "Y", "read": "Y crosses the whole field at 8-9 yards, behind the underneath traffic. Hit him on the move.", "best": "Zone / Man - works vs both", "coach": "Climb to 8 yards FIRST, then flatten across.", "run": false}, {"code": "Y14", "name": "Y NOW", "series": "Y", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Y": [[6, 0], [4.5, -1]], "X": [[-12, 0], [-12, 13]], "Z": [[12, 0], [12, 13]], "C": [[0, 0], [0.8, 13]]}, "motion": null, "paths": [], "mesh": [], "primary": "Y", "read": "Snap and throw to Y instantly behind the line. X, Z, C sprint deep to empty the grass.", "best": "Blitz / Soft slot defender", "coach": "Ball out in under 1 second - Y catches moving forward.", "run": false}, {"code": "Y15", "name": "Y CORNER-POST", "series": "Y", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Y": [[6, 0], [6, 7], [9, 9], [3.5, 14]], "Z": [[12, 0], [12, 5], [11.2, 3.6]], "X": [[-12, 0], [-12, 13]], "C": [[0, 0], [-14.5, 2]]}, "motion": null, "paths": [], "mesh": [], "primary": "Y", "read": "Double move: fake the corner, bend back to the post. The deep man opens his hips - gone.", "best": "Single high defender / Must-score shot", "coach": "Save it: one call per game, after Y3 corner has shown.", "run": false}, {"code": "Y16", "name": "STICK LT", "series": "Y", "form": "SP", "mirror": true, "base": "Y1", "read": "Mirror of Y1. Z clears the deep man. Y bursts to 5, sits in grass. Defender on him = C in the flat.", "best": "Zone / 3rd and 4-6 / Safe ball", "coach": "Stick = STOP and show the QB your numbers. Slide to open grass, don't drift.", "run": false}, {"code": "Y17", "name": "OUT LT", "series": "Y", "form": "TR", "mirror": true, "base": "Y2", "read": "Mirror of Y2. Flood: three levels right. Deep X first if wide open, then Y out at 8, then Z flat.", "best": "Zone / Cover 3", "coach": "Three different depths on ONE sideline - one defender can't take two.", "run": false}, {"code": "Y18", "name": "CORNER LT", "series": "Y", "form": "SP", "mirror": true, "base": "Y3", "read": "Mirror of Y3. Smash right: corner over the hitch. Flat defender squats on Z = Y corner behind him.", "best": "Cover 2 / Red zone", "coach": "Y attacks the deep defender's toes before breaking to the flag.", "run": false}, {"code": "Y19", "name": "ARROW RT", "series": "Y", "form": "TL", "mirror": true, "base": "Y5", "read": "Mirror of Y5. Same read as X Slant, flipped: flat defender sits = Y arrow. He chases = X slant.", "best": "Man / Blitz / Quick game", "coach": "Y snaps his head around at the break - the ball comes out FAST.", "run": false}, {"code": "Y20", "name": "CURL LT", "series": "Y", "form": "TR", "mirror": true, "base": "Y9", "read": "Mirror of Y9. Curl-flat: Z pulls the flat defender wide, Y curls into the window behind him.", "best": "Zone / Cover 3 / 2nd and medium", "coach": "Y turns INSIDE and steps back toward Q. Attack the ball in the air.", "run": false}, {"code": "Z1", "name": "JET SWEEP", "series": "Z", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [-14.5, 1.5]], "X": [[-12, 0], [-12, 13]], "Y": [[6, 0], [6, 1.2], [13.5, 5.7]]}, "motion": {"player": "Z", "pts": [[12, -0.9], [2, -0.9]]}, "paths": [{"player": "Z", "pts": [[2, -0.9], [-3, -2.2], [-9, -0.5], [-13.5, 4.5]]}], "mesh": [[1, -1.6]], "primary": "Z", "read": "Z sprints in jet motion, takes the flip, and turns the corner left. If his man chases the motion = MAN, give it.", "best": "Man / Weak edge defender / Speed in space", "coach": "Motion at FULL speed. Rep the flip exchange 20 times every practice.", "run": true}, {"code": "Z2", "name": "JET WHEEL", "series": "Z", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"C": [[0, 0], [0, 4], [-0.8, 2.6]], "X": [[-12, 0], [-12, 9], [-6, 14.5]], "Y": [[6, 0], [14.5, 2]]}, "motion": {"player": "Z", "pts": [[12, -0.9], [0, -0.9]]}, "paths": [{"player": "Z", "pts": [[0, -0.9], [-6, -0.5], [-13.5, 1.2], [-14.3, 12]]}], "mesh": [[1, -1.4]], "primary": "Z", "read": "Looks exactly like Jet Sweep - but Z fakes the flip and wheels up the sideline. Throw it over his shoulder.", "best": "Man / After Jet Sweep has worked", "coach": "Q fakes the flip with his eyes and hands, then resets and throws.", "run": false}, {"code": "Z3", "name": "Z GO", "series": "Z", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Z": [[12, 0], [12.5, 13]], "Y": [[6, 0], [6, 8], [15, 8]], "X": [[-12, 0], [-12, 10], [13, 11]], "C": [[0, 0], [0, 3.5], [-0.8, 2.1]]}, "motion": null, "paths": [], "mesh": [], "primary": "Z", "read": "Z presses vertical outside. Even with his man = throw it deep to the sideline. Not open = Y out.", "best": "Man / Your fastest kid vs their slowest", "coach": "Throw to the OUTSIDE shoulder so only Z can make the play.", "run": false}, {"code": "Z4", "name": "Z SLANT", "series": "Z", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Z": [[12, 0], [12, 1.2], [4.5, 5.7]], "Y": [[6, 0], [14.5, 1.8]], "X": [[-12, 0], [-12, 3], [13, 4]], "C": [[0, 0], [0, 4], [-0.8, 2.6]]}, "motion": null, "paths": [], "mesh": [], "primary": "Z", "read": "Y clears to the flat. Z slants into the space behind him. Taken away = C hitch.", "best": "Man / Blitz", "coach": "Z's first step is UPFIELD to freeze the defender, then break flat inside.", "run": false}, {"code": "Z5", "name": "Z DRAG", "series": "Z", "form": "TR", "mirror": false, "formation": {"C": [0, 0], "Z": [5, 0], "Y": [8.5, 0], "X": [12, 0], "Q": [0, -5]}, "routes": {"Z": [[5, 0], [3, 1.4], [-13, 2.8]], "Y": [[8.5, 0], [8.5, 8], [14.0, 13.5]], "X": [[12, 0], [12.5, 13]], "C": [[0, 0], [0, 4], [-1.5, 4]]}, "motion": null, "paths": [], "mesh": [], "primary": "Z", "read": "Everything goes right, Z drags left into empty grass. Hit him on the move and let him run.", "best": "Man / Zone / Easy completion", "coach": "This is our 'get the ball to Z in space' play - catch and GO.", "run": false}, {"code": "Z6", "name": "Z HITCH", "series": "Z", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Z": [[12, 0], [12, 5], [11.2, 3.6]], "Y": [[6, 0], [5.1, 13]], "X": [[-12, 0], [-12, 5], [-11.2, 3.6]], "C": [[0, 0], [-14.5, 2]]}, "motion": null, "paths": [], "mesh": [], "primary": "Z", "read": "Y's seam lifts the coverage. Corner gives Z a 5-yard cushion = throw the hitch now.", "best": "Soft corner / 2nd and short / Rhythm throw", "coach": "Z snaps around and shows numbers. Catch, turn, get north.", "run": false}, {"code": "Z7", "name": "Z CORNER", "series": "Z", "form": "BR", "mirror": false, "formation": {"C": [0, 0], "Y": [8.5, 0], "Z": [6.8, -1.4], "X": [10.2, -1.4], "Q": [0, -5]}, "routes": {"Z": [[6.8, -1.4], [6.8, 8], [12.3, 13.5]], "X": [[10.2, -1.4], [14.5, 2]], "Y": [[8.5, 0], [8.5, 3], [-13, 4]], "C": [[0, 0], [0, 4], [-0.8, 2.6]]}, "motion": null, "paths": [], "mesh": [], "primary": "Z", "read": "Bunch rub: X to the flat drags traffic under Z's corner. Throw Z to the pylon.", "best": "Man vs bunch / Red zone", "coach": "Legal rubs come from ROUTES, not blocking - run your route, the pick happens.", "run": false}, {"code": "Z8", "name": "Z MOTION FLAT", "series": "Z", "form": "TL", "mirror": false, "formation": {"C": [0, 0], "Z": [-5, 0], "Y": [-8.5, 0], "X": [-12, 0], "Q": [0, -5]}, "routes": {"X": [[-12, 0], [-12, 1.2], [-4.5, 5.7]], "Y": [[-8.5, 0], [-8.5, 3], [13, 4]], "C": [[0, 0], [0, 4], [-0.8, 2.6]]}, "motion": {"player": "Z", "pts": [[-5, -0.9], [8, -0.9]]}, "paths": [{"player": "Z", "pts": [[8, -0.9], [14.5, 2]]}], "mesh": [], "primary": "Z", "read": "Z motions to the empty side and runs to the flat - usually uncovered. Nobody travels with him = throw NOW.", "best": "Zone / Finding out man vs zone", "coach": "This play TELLS you the coverage: chaser = man, no chaser = zone.", "run": false}, {"code": "Z9", "name": "Z POST", "series": "Z", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Z": [[12, 0], [12, 9], [6, 14.5]], "Y": [[6, 0], [6, 6], [15, 6]], "X": [[-12, 0], [-12, 13]], "C": [[0, 0], [0, 3.5], [-0.8, 2.1]]}, "motion": null, "paths": [], "mesh": [], "primary": "Z", "read": "Y's out pulls the flat man wide, X pulls the safety left. Z bends the post into the open middle.", "best": "Single safety / Shot play", "coach": "Z sells the go HARD - the post only opens if the defender turns his hips.", "run": false}, {"code": "Z10", "name": "Z COMEBACK", "series": "Z", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Z": [[12, 0], [12, 10], [14, 7.2]], "Y": [[6, 0], [14.5, 2]], "X": [[-12, 0], [-12, 9], [-6, 14.5]], "C": [[0, 0], [0, 3], [13, 4]]}, "motion": null, "paths": [], "mesh": [], "primary": "Z", "read": "Z sprints 10 like a go, snaps back to the sideline. Throw on the break. Late = Y flat.", "best": "Man playing deep / Sideline clock plays", "coach": "Comeback is a TIMING throw - Q releases as Z plants his foot.", "run": false}, {"code": "Z11", "name": "Z WHIP", "series": "Z", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Z": [[12, 0], [12, 1.5], [9, 2.5], [14.8, 3]], "Y": [[6, 0], [5.1, 13]], "X": [[-12, 0], [-12, 9], [13, 10]], "C": [[0, 0], [0, 4], [-0.8, 2.6]]}, "motion": null, "paths": [], "mesh": [], "primary": "Z", "read": "Z jabs inside, whips back to the sideline. Throw as he clears his man's shoulder.", "best": "Man / Physical press defender", "coach": "Stay low through the whip - burst out of the break.", "run": false}, {"code": "Z12", "name": "Z STUTTER GO", "series": "Z", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Z": [[12, 0], [12, 4], [12.4, 4.8], [12.7, 14]], "Y": [[6, 0], [6, 5], [8, 5]], "X": [[-12, 0], [-12, 10], [13, 11]], "C": [[0, 0], [-14.5, 2]]}, "motion": null, "paths": [], "mesh": [], "primary": "Z", "read": "Z stutters at 4 like a hitch, then explodes deep. Defender settles = throw it over the top.", "best": "Corner who squats on hitches", "coach": "The stutter is 2 choppy steps - then FLY.", "run": false}, {"code": "Z13", "name": "Z MESH", "series": "Z", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Z": [[12, 0], [10, 1.4], [-13, 2.8]], "X": [[-12, 0], [-10, 1.8], [13, 3.2]], "Y": [[6, 0], [6.5, 13]], "C": [[0, 0], [0, 5], [-1.5, 5]]}, "motion": null, "paths": [], "mesh": [], "primary": "Z", "read": "Z and X cross at 2 yards - Z under, X over. Stay with Z; the rub springs him. Covered = C.", "best": "Man / Blitz", "coach": "High-five distance at the mesh. Over/under - never collide.", "run": false}, {"code": "Z14", "name": "Z FLAG", "series": "Z", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Z": [[12, 0], [12, 9], [14.8, 12.5]], "Y": [[6, 0], [6, 4], [5.2, 2.6]], "X": [[-12, 0], [-12, 9], [-6, 14.5]], "C": [[0, 0], [-14.5, 2]]}, "motion": null, "paths": [], "mesh": [], "primary": "Z", "read": "Y's hitch holds the underneath man. Z breaks to the deep flag over the top. Back-pylon ball.", "best": "Cover 2 / Red zone from the 15", "coach": "Throw it high and outside - only Z can get it.", "run": false}, {"code": "Z15", "name": "Z HITCH & GO", "series": "Z", "form": "SP", "mirror": false, "formation": {"X": [-12, 0], "C": [0, 0], "Y": [6, 0], "Z": [12, 0], "Q": [0, -5]}, "routes": {"Z": [[12, 0], [12, 5], [11.3, 4.2], [11.72, 14]], "Y": [[6, 0], [6, 5], [8, 5]], "X": [[-12, 0], [-12, 9], [13, 10]], "C": [[0, 0], [0, 3.5], [-0.8, 2.1]]}, "motion": null, "paths": [], "mesh": [], "primary": "Z", "read": "Pump the Z6 hitch, then go. If the corner drove on the pump, it's a touchdown.", "best": "After Z6 has completed twice", "coach": "QB's pump fake must be violent enough to move the defender.", "run": false}, {"code": "Z16", "name": "MOTION FLAT LT", "series": "Z", "form": "TL", "mirror": true, "base": "Z8", "read": "Mirror of Z8. Z motions to the empty side and runs to the flat - usually uncovered. Nobody travels with him = throw NOW.", "best": "Zone / Finding out man vs zone", "coach": "This play TELLS you the coverage: chaser = man, no chaser = zone.", "run": false}, {"code": "Z17", "name": "GO LT", "series": "Z", "form": "SP", "mirror": true, "base": "Z3", "read": "Mirror of Z3. Z presses vertical outside. Even with his man = throw it deep to the sideline. Not open = Y out.", "best": "Man / Your fastest kid vs their slowest", "coach": "Throw to the OUTSIDE shoulder so only Z can make the play.", "run": false}, {"code": "Z18", "name": "SLANT RT", "series": "Z", "form": "SP", "mirror": true, "base": "Z4", "read": "Mirror of Z4. Y clears to the flat. Z slants into the space behind him. Taken away = C hitch.", "best": "Man / Blitz", "coach": "Z's first step is UPFIELD to freeze the defender, then break flat inside.", "run": false}, {"code": "Z19", "name": "CORNER LT", "series": "Z", "form": "BR", "mirror": true, "base": "Z7", "read": "Mirror of Z7. Bunch rub: X to the flat drags traffic under Z's corner. Throw Z to the pylon.", "best": "Man vs bunch / Red zone", "coach": "Legal rubs come from ROUTES, not blocking - run your route, the pick happens.", "run": false}, {"code": "Z20", "name": "DRAG RT", "series": "Z", "form": "TR", "mirror": true, "base": "Z5", "read": "Mirror of Z5. Everything goes right, Z drags left into empty grass. Hit him on the move and let him run.", "best": "Man / Zone / Easy completion", "coach": "This is our 'get the ball to Z in space' play - catch and GO.", "run": false}], "fnames": {"TR": "Trips Right", "TL": "Trips Left", "SP": "Spread", "BR": "Bunch Right", "SR": "Stack Right"}};
+const SC = {X:'#D62828',Y:'#1E9E50',Z:'#1D6FD6',C:'#F77F00',R:'#7B2CBF'};
+const PCOL = {Q:'#7B2CBF',C:'#F77F00',X:'#D62828',Y:'#1E9E50',Z:'#1D6FD6'};
+const SNAMES = {X:'X SERIES',Y:'Y SERIES',Z:'Z SERIES',C:'CENTER',R:'RUN GAME'};
+const FN = DATA.fnames;
+const plays = DATA.plays;
+const byCode = {}; plays.forEach(p=>byCode[p.code]=p);
+
+// resolve mirrors into concrete geometry
+function geom(play, flip){
+  let src = play.mirror ? byCode[play.base] : play;
+  let doFlip = (play.mirror ? true : false) !== (!!flip); // XOR
+  const fx = doFlip ? -1 : 1;
+  const M = pts => pts.map(p=>[p[0]*fx, p[1]]);
+  const g = {
+    formation:{}, routes:{}, paths:[], mesh:(src.mesh||[]).map(m=>[m[0]*fx,m[1]]),
+    motion: src.motion ? {player:src.motion.player, pts:M(src.motion.pts)} : null,
+    primary: src.primary, run: play.run,
+    formName: doFlip ? (FN[src.form]||'').replace('Right','§').replace('Left','Right').replace('§','Left') : (FN[src.form]||'')
+  };
+  for(const k in src.formation) g.formation[k]=[src.formation[k][0]*fx, src.formation[k][1]];
+  for(const k in src.routes) g.routes[k]=M(src.routes[k]);
+  (src.paths||[]).forEach(pa=>g.paths.push({player:pa.player, pts:M(pa.pts)}));
+  return g;
+}
+
+// ---------- canvas ----------
+const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+let W=0,H=0,DPR=1;
+function resize(){
+  const r = cv.parentElement.getBoundingClientRect();
+  DPR = window.devicePixelRatio||1;
+  W=r.width; H=r.height;
+  cv.width=W*DPR; cv.height=H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  draw(curT);
+}
+window.addEventListener('resize',resize);
+
+// world coords: x -16.5..16.5, y -8.5..16.5 (y up)
+function map(p){
+  const wx=33, wy=25;
+  const s = Math.min(W/wx, H/wy);
+  const ox = W/2, oy = H - (8.5)*s - (H - wy*s)/2;
+  return [ox + p[0]*s, oy - p[1]*s];
+}
+function scale(){ return Math.min(W/33, H/25); }
+
+function polyLen(pts){let L=0;for(let i=1;i<pts.length;i++){L+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);}return L;}
+function polyAt(pts,t){ // t 0..1
+  const L=polyLen(pts); if(L===0) return pts[0];
+  let d=t*L;
+  for(let i=1;i<pts.length;i++){
+    const seg=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);
+    if(d<=seg){const f=seg?d/seg:0;return [pts[i-1][0]+(pts[i][0]-pts[i-1][0])*f, pts[i-1][1]+(pts[i][1]-pts[i-1][1])*f];}
+    d-=seg;
+  }
+  return pts[pts.length-1];
+}
+
+// ---------- state ----------
+let curSeries='X', curPlay=null, flip=false, showRoutes=true;
+let anim=null, curT=0, speed=1;
+const SPEEDS=[0.5,1,2];
+
+// timeline (seconds at 1x): idle .4 | motion 1.2 (if any) | snap .3 | action 2.6 | hold .8
+function timeline(g){
+  const mo = g.motion ? 1.2 : 0;
+  return {idle:.4, motion:mo, snap:.3, action:2.6, hold:.9,
+          total:.4+mo+.3+2.6+.9};
+}
+
+function playerTrack(g, who){
+  // returns full polyline the player follows during ACTION phase, and start pos incl. motion
+  let start = g.formation[who].slice();
+  if(g.motion && g.motion.player===who) start = g.motion.pts[g.motion.pts.length-1].slice();
+  let pts=null;
+  const pa = g.paths.find(p=>p.player===who);
+  if(pa) pts = pa.pts;
+  else if(g.routes[who]) pts = g.routes[who];
+  if(!pts) return {start, pts:[start]};
+  // ensure track starts at start
+  const first = pts[0];
+  if(Math.hypot(first[0]-start[0], first[1]-start[1])>0.05) pts=[start,...pts];
+  return {start, pts};
+}
+
+function posAt(g, who, t){
+  const tl = timeline(g);
+  const f = g.formation[who];
+  if(t < tl.idle) return f;
+  t-=tl.idle;
+  if(g.motion && g.motion.player===who){
+    if(t < tl.motion) return polyAt([f, ...g.motion.pts], Math.min(1,t/tl.motion));
+  }
+  if(t < tl.motion){ return f; }
+  t-=tl.motion;
+  const tr = playerTrack(g, who);
+  if(t < tl.snap) return tr.start;
+  t-=tl.snap;
+  if(who==='Q') return f; // QB stays (no QB runs in our league)
+  const u = Math.min(1, t/tl.action);
+  return polyAt(tr.pts, u);
+}
+
+function ballAt(g, t){
+  const tl = timeline(g);
+  const q = g.formation['Q'], c = g.formation['C'];
+  if(t < tl.idle + tl.motion) return c;               // ball with center
+  let t2 = t - tl.idle - tl.motion;
+  if(t2 < tl.snap) return polyAt([c,q], t2/tl.snap);  // snap
+  t2 -= tl.snap;
+  if(g.run){
+    // hand/pitch: fly to carrier over .35s then stick with carrier
+    const carrier = g.primary;
+    const cp = posAt(g, carrier, t);
+    if(t2 < .35){ const f=t2/.35; return [q[0]+(cp[0]-q[0])*f, q[1]+(cp[1]-q[1])*f]; }
+    return cp;
+  } else {
+    const rel=.62, fly=.4;
+    const tr = playerTrack(g, g.primary);
+    const target = tr.pts[tr.pts.length-1];
+    if(t2 < tl.action*rel) return q;
+    const f = Math.min(1,(t2 - tl.action*rel)/fly);
+    // arc
+    const x=q[0]+(target[0]-q[0])*f, y=q[1]+(target[1]-q[1])*f + Math.sin(f*Math.PI)*2.2;
+    return [x,y];
+  }
+}
+
+// ---------- drawing ----------
+function drawField(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#10192B'; ctx.fillRect(0,0,W,H);
+  const tl=map([-16,16.5]), br=map([16,-8.5]);
+  ctx.fillStyle='#EDF7ED';
+  ctx.fillRect(tl[0],tl[1],br[0]-tl[0],br[1]-tl[1]);
+  ctx.strokeStyle='#B9D8B9'; ctx.lineWidth=1.5;
+  [5,10,15].forEach(yy=>{
+    const a=map([-16,yy]),b=map([16,yy]);
+    ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+    ctx.fillStyle='#7BA37B'; ctx.font='700 10px -apple-system'; ctx.fillText(yy+' yd', a[0]+6, a[1]-4);
+  });
+  const a=map([-16,0]),b=map([16,0]);
+  ctx.strokeStyle='#1B2A41'; ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+  ctx.fillStyle='#1B2A41'; ctx.font='800 11px -apple-system'; ctx.fillText('LOS', b[0]-34, b[1]-6);
+}
+function drawPoly(ptsW, color, lw, dash){
+  if(ptsW.length<2)return;
+  ctx.save();
+  ctx.strokeStyle=color; ctx.lineWidth=lw; ctx.lineCap='round'; ctx.lineJoin='round';
+  if(dash) ctx.setLineDash(dash);
+  ctx.beginPath();
+  ptsW.forEach((p,i)=>{const m=map(p); i?ctx.lineTo(m[0],m[1]):ctx.moveTo(m[0],m[1]);});
+  ctx.stroke();
+  // arrowhead
+  const n=ptsW.length, p1=map(ptsW[n-2]), p2=map(ptsW[n-1]);
+  const ang=Math.atan2(p2[1]-p1[1],p2[0]-p1[0]), ah=6+lw;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(p2[0],p2[1]);
+  ctx.lineTo(p2[0]-ah*Math.cos(ang-0.45), p2[1]-ah*Math.sin(ang-0.45));
+  ctx.lineTo(p2[0]-ah*Math.cos(ang+0.45), p2[1]-ah*Math.sin(ang+0.45));
+  ctx.closePath(); ctx.fillStyle=color; ctx.fill();
+  ctx.restore();
+}
+function star(w, r, color){
+  const m=map(w); ctx.save(); ctx.translate(m[0],m[1]); ctx.beginPath();
+  for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5, rr=i%2?r*0.45:r;
+    i?ctx.lineTo(rr*Math.cos(a),rr*Math.sin(a)):ctx.moveTo(rr*Math.cos(a),rr*Math.sin(a));}
+  ctx.closePath(); ctx.fillStyle=color; ctx.fill();
+  ctx.strokeStyle='#1B2A41'; ctx.lineWidth=1.2; ctx.stroke(); ctx.restore();
+}
+
+function draw(t){
+  if(!curPlay){drawField();return;}
+  const g = geom(curPlay, flip);
+  const tl = timeline(g);
+  drawField();
+  const s = scale();
+
+  // run warning
+  if(g.run){
+    ctx.fillStyle='#B00020';
+    const m=map([0,15.6]);
+    ctx.font='800 12px -apple-system';
+    const txt='RUN PLAY — ILLEGAL IN NO-RUN ZONES';
+    const w=ctx.measureText(txt).width;
+    ctx.beginPath(); ctx.roundRect(m[0]-w/2-10, m[1]-14, w+20, 22, 8); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.fillText(txt, m[0]-w/2, m[1]+2);
+  }
+
+  // snap line
+  {
+    const c=map(g.formation['C']), q=map(g.formation['Q']);
+    ctx.save(); ctx.strokeStyle='#8B98A8'; ctx.setLineDash([2,4]); ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(c[0],c[1]); ctx.lineTo(q[0],q[1]); ctx.stroke(); ctx.restore();
+  }
+
+  if(showRoutes){
+    if(g.motion) drawPoly([g.formation[g.motion.player], ...g.motion.pts], PCOL[g.motion.player], 2, [6,5]);
+    for(const who of ['C','X','Y','Z']){
+      const tr = playerTrack(g, who);
+      if(tr.pts.length>1){
+        const prim = who===g.primary;
+        drawPoly(tr.pts, PCOL[who], prim?4.5:2.2);
+        if(prim) star(tr.pts[tr.pts.length-1], 9, '#F4B400');
+      }
+    }
+    g.mesh.forEach(m=>{
+      const p=map(m); ctx.save(); ctx.translate(p[0],p[1]); ctx.rotate(Math.PI/4);
+      ctx.fillStyle='#fff'; ctx.strokeStyle='#1B2A41'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.rect(-4,-4,8,8); ctx.fill(); ctx.stroke(); ctx.restore();
+    });
+  }
+
+  // players
+  for(const who of ['C','X','Y','Z','Q']){
+    const p = posAt(g, who, t), m=map(p);
+    const prim = who===g.primary;
+    if(prim){ctx.beginPath();ctx.arc(m[0],m[1],s*1.35,0,7);ctx.strokeStyle='#F4B400';ctx.lineWidth=3;ctx.stroke();}
+    ctx.beginPath();ctx.arc(m[0],m[1],s*1.0,0,7);
+    ctx.fillStyle=PCOL[who];ctx.fill();
+    ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font=`800 ${Math.max(11,s*1.05)}px -apple-system`;
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(who,m[0],m[1]+0.5);
+    ctx.textAlign='start';ctx.textBaseline='alphabetic';
+  }
+
+  // ball
+  {
+    const b = ballAt(g,t), m=map(b);
+    ctx.save(); ctx.translate(m[0],m[1]);
+    ctx.beginPath(); ctx.ellipse(0,0,s*0.55,s*0.36,0.5,0,7);
+    ctx.fillStyle='#7B4A21'; ctx.fill(); ctx.strokeStyle='#fff'; ctx.lineWidth=1.4; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-s*0.22,-s*0.1); ctx.lineTo(s*0.22,s*0.1);
+    ctx.strokeStyle='#fff'; ctx.lineWidth=1.2; ctx.stroke();
+    ctx.restore();
+  }
+
+  // completion flash
+  if(t > tl.total - tl.hold + 0.1){
+    ctx.fillStyle='rgba(27,42,65,0.85)';
+    const m=map([0,-6.8]);
+    const msg = g.run ? 'BALL CARRIER LOOSE!' : 'COMPLETE!';
+    ctx.font='900 20px -apple-system';
+    const w=ctx.measureText(msg).width;
+    ctx.beginPath(); ctx.roundRect(m[0]-w/2-16, m[1]-22, w+32, 34, 10); ctx.fill();
+    ctx.fillStyle='#F4B400'; ctx.fillText(msg, m[0]-w/2, m[1]+2);
+  }
+}
+
+// ---------- animation ----------
+function startAnim(){
+  if(!curPlay) return;
+  cancelAnimationFrame(anim);
+  const g = geom(curPlay, flip);
+  const tl = timeline(g);
+  const t0 = performance.now();
+  function step(now){
+    curT = (now-t0)/1000 * speed;
+    if(curT >= tl.total){ curT = tl.total; draw(curT); return; }
+    draw(curT);
+    anim = requestAnimationFrame(step);
+  }
+  anim = requestAnimationFrame(step);
+}
+
+// ---------- UI ----------
+const tabsEl=document.getElementById('tabs'), listEl=document.getElementById('list'), infoEl=document.getElementById('info');
+function buildTabs(){
+  tabsEl.innerHTML='';
+  for(const s of ['X','Y','Z','C','R']){
+    const b=document.createElement('button');
+    b.className='tab'+(s===curSeries?' active':'');
+    b.style.background=SC[s];
+    b.textContent=SNAMES[s];
+    b.onclick=()=>{curSeries=s;buildTabs();buildList();};
+    tabsEl.appendChild(b);
+  }
+}
+function buildList(){
+  listEl.innerHTML='';
+  plays.filter(p=>p.series===curSeries).forEach(p=>{
+    const b=document.createElement('button');
+    b.className='chip'+(curPlay&&curPlay.code===p.code?' sel':'');
+    const runTag = p.run?'<span class="run">RUN</span>':'';
+    b.innerHTML=`<span class="code" style="color:${SC[p.series]}">${p.code}</span><span class="nm">${p.name}</span>${runTag}`;
+    b.onclick=()=>{selectPlay(p);};
+    listEl.appendChild(b);
+  });
+}
+function selectPlay(p){
+  curPlay=p; flip=false; curT=0;
+  buildList(); renderInfo(); draw(0);
+  startAnim();
+}
+function renderInfo(){
+  if(!curPlay){infoEl.innerHTML='<div class="row">Tap a play, then press ▶ PLAY.</div>';return;}
+  const g=geom(curPlay,flip);
+  const sc=SC[curPlay.series];
+  infoEl.innerHTML=`
+    <h2>${curPlay.code} — ${curPlay.name} ${curPlay.mirror?'<span style="font-size:12px;color:#9FB4CC">(mirror of '+curPlay.base+')</span>':''}</h2>
+    <div class="meta">${g.formName}${flip?' (FLIPPED)':''} • Ball goes to <b style="color:${PCOL[g.primary]}">${g.primary}</b> ★</div>
+    ${g.run?'<div class="warn">RUN — never call inside a no-run zone</div>':''}
+    <div class="row"><span class="lab" style="background:${sc}">QB READ</span>${curPlay.read}</div>
+    <div class="row"><span class="lab" style="background:${sc}">BEST VS</span>${curPlay.best}</div>
+    <div class="row"><span class="lab" style="background:${sc}">COACH</span>${curPlay.coach}</div>`;
+}
+document.getElementById('btnPlay').onclick=()=>startAnim();
+document.getElementById('btnSpeed').onclick=(e)=>{
+  const i=(SPEEDS.indexOf(speed)+1)%SPEEDS.length; speed=SPEEDS[i];
+  e.target.textContent=speed+'x';
+};
+document.getElementById('btnFlip').onclick=()=>{flip=!flip;renderInfo();draw(0);startAnim();};
+document.getElementById('btnRoutes').onclick=(e)=>{showRoutes=!showRoutes;e.target.textContent='Routes: '+(showRoutes?'ON':'OFF');draw(curT);};
+
+buildTabs(); buildList(); renderInfo();
+resize();
+selectPlay(plays.find(p=>p.code==='X1'));
+</script>
+<script>
+if ("serviceWorker" in navigator) { navigator.serviceWorker.register("./sw.js"); }
+</script>
+</body>
+</html>

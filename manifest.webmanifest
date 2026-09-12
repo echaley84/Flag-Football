@@ -1,0 +1,13 @@
+{
+  "name": "U9 Animated Playbook",
+  "short_name": "Playbook",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#10192B",
+  "theme_color": "#1B2A41",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
