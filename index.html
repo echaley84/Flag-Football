@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="theme-color" content="#F2F2F7">
+<meta name="theme-color" content="#F7F7F8">
 <title>Playbook</title>
 <style>
 :root{
@@ -161,6 +161,39 @@ canvas{position:absolute;inset:0;width:100%;height:100%;}
 .it .dur{color:var(--t3);font-weight:600;font-size:12px;min-width:42px;text-align:right;font-variant-numeric:tabular-nums;}
 .dtag{font-size:10px;font-weight:800;border-radius:5px;padding:3px 7px;color:#fff;flex-shrink:0;}
 
+
+/* ---- roster v5 ---- */
+.subhead{font-size:13px;font-weight:600;color:var(--t2);margin:0 2px 8px;}
+.pgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:4px;}
+.pslot{background:var(--surface);border:none;border-radius:14px;padding:12px 6px;display:flex;
+  flex-direction:column;align-items:center;gap:6px;text-align:center;}
+.pslot .ring{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:16px;color:#fff;}
+.pslot .who{font-size:12.5px;font-weight:700;line-height:1.2;min-height:15px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.pslot .empty{color:var(--t3);font-weight:600;}
+.pslot .lab{font-size:10px;color:var(--t3);font-weight:600;}
+.pslot.active{outline:2.5px solid var(--ink);}
+.plist{background:var(--surface);border-radius:16px;overflow:hidden;}
+.prow{display:flex;align-items:center;gap:11px;padding:10px 13px;border-bottom:.5px solid var(--sep);}
+.prow:last-child{border-bottom:none;}
+.prow .num{width:30px;height:30px;border-radius:50%;background:var(--fill);color:var(--t2);
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;
+  font-variant-numeric:tabular-nums;}
+.prow .num.on{background:var(--ink);color:#fff;}
+.prow input{flex:1;border:none;background:none;color:var(--t1);font-size:15px;font-weight:600;padding:8px 0;min-width:0;font-family:inherit;}
+.prow input::placeholder{color:var(--t3);font-weight:500;}
+.posbtns{display:flex;gap:4px;flex-shrink:0;}
+.pb{width:30px;height:30px;border-radius:9px;border:none;background:var(--fill);color:var(--t2);
+  font-size:11.5px;font-weight:800;padding:0;}
+.pb.on{color:#fff;}
+.prow .del{border:none;background:none;color:var(--t3);font-size:19px;padding:4px 2px 4px 6px;flex-shrink:0;line-height:1;}
+#addRow{display:flex;gap:9px;margin-top:12px;}
+#addRow input{flex:1;border:none;border-radius:10px;padding:12px 13px;background:var(--fill);color:var(--t1);font-size:15px;font-family:inherit;}
+.bench{font-size:12.5px;color:var(--t2);line-height:1.6;margin-top:10px;}
+#formSeg{margin-top:2px;}
+#formSeg button{font-size:12px;padding:8px 3px;}
+
 /* ---- team ---- */
 .rosterRow{display:flex;align-items:center;gap:13px;padding:12px 0;border-bottom:.5px solid var(--sep);}
 .rosterRow:last-of-type{border-bottom:none;}
@@ -182,7 +215,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;}
 </head>
 <body>
 <div id="app">
-  <header><h1 id="pgTitle">Home</h1><span class="count" id="pgSub"></span><div id="miniTimer">0:00</div></header>
+  <header><h1 id="pgTitle">Home</h1><span class="count" id="pgSub"></span><div id="miniTimer"></div></header>
 
   
   <div class="page active" id="pgHome">
@@ -199,7 +232,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;}
         </button>
       </div>
       <div class="hcard"><h3>Your five</h3>
-        <div class="sub2">Tap a player to see their plays.</div>
+        <div class="sub2" id="fiveSub">Tap a player to see their plays.</div>
         <div class="avrow" id="homeAvs"></div>
       </div>
       <div class="hcard"><h3>Library</h3>
@@ -211,6 +244,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;}
   <div class="page" id="pgPlays">
     <div id="pbTop">
       <div id="serTabs"></div>
+      <div class="segc" id="formSeg"></div>
       <div id="filterRow">
         <div class="segc" id="fSeg">
           <button data-f="all" class="on">All</button>
@@ -267,9 +301,19 @@ canvas{position:absolute;inset:0;width:100%;height:100%;}
 
   <div class="page" id="pgTeam">
     <div class="scroll">
-      <div class="pcard"><h3>Roster</h3>
-        <div id="rosterBox"></div>
-        <div class="note">Names save on this device and appear on every animation. Match each armband to the circle color: X red, Y green, Z pink, C orange, QB purple.</div>
+      <div class="pcard">
+        <h3>On the field</h3>
+        <div class="subhead">Tap a slot, then tap a player below to assign them.</div>
+        <div class="pgrid" id="lineupGrid"></div>
+        <div class="bench" id="benchNote"></div>
+      </div>
+      <div class="pcard">
+        <h3>Roster</h3>
+        <div class="subhead">Up to 15 players. Tap a position button to put someone on the field.</div>
+        <div class="plist" id="rosterList"></div>
+        <div id="addRow"><input id="addName" placeholder="Add player" maxlength="14">
+          <button class="btn play" id="addBtn">Add</button></div>
+        <div class="note">Everything saves on this device. Names appear on every play animation, in call-sheet suggestions, and match the armband colors: X red, Y green, Z pink, C orange, QB purple.</div>
       </div>
     </div>
   </div>
@@ -295,8 +339,17 @@ const SNAMES={X:'X',Y:'Y',Z:'Z',C:'Center',R:'Run'};
 const FN=DATA.fnames, plays=DATA.plays, byCode={};
 plays.forEach(p=>byCode[p.code]=p);
 const SC={X:PCOL.X,Y:PCOL.Y,Z:PCOL.Z,C:PCOL.C,R:PCOL.Q};
+let squad=[];
+try{squad=JSON.parse(localStorage.getItem('u9squad')||'null')||[];}catch(e){squad=[];}
+if(!squad.length){
+  let old={};try{old=JSON.parse(localStorage.getItem('u9roster')||'{}');}catch(e){}
+  squad=Object.keys(old).map((k,i)=>({id:'p'+Date.now()+i,name:old[k],pos:k}));
+}
+function saveSquad(){try{localStorage.setItem('u9squad',JSON.stringify(squad));}catch(e){}}
+const POSN=['Q','C','X','Y','Z'];
 let roster={};
-try{roster=JSON.parse(localStorage.getItem('u9roster')||'{}');}catch(e){roster={};}
+function syncRoster(){roster={};squad.forEach(p=>{if(p.pos&&p.name)roster[p.pos]=p.name;});}
+syncRoster();
 const nm=w=>roster[w]?` · ${roster[w]}`:'';
 
 function geom(play,flip){
@@ -427,16 +480,24 @@ function startAnim(){if(!curPlay)return;cancelAnimationFrame(anim);
   anim=requestAnimationFrame(step);}
 // ------- playbook ui -------
 const serTabs=document.getElementById('serTabs'),listEl=document.getElementById('listInner'),infoEl=document.getElementById('infoCard');
-let filter='all',query='';
+let filter='all',query='',formFilter='all';
 function buildSerTabs(){serTabs.innerHTML='';
   for(const s of['X','Y','Z','C','R']){const b=document.createElement('button');
     b.className='stab'+(s===curSeries?' active':'');
     b.innerHTML=`<span class="dot" style="background:${SC[s]}"></span>${SNAMES[s]}`;
     b.onclick=()=>{curSeries=s;buildSerTabs();buildList();};serTabs.appendChild(b);}}
+
+const FORMS=[['all','All'],['SP','Spread'],['TR','Trips R'],['TL','Trips L'],['BR','Bunch']];
+function buildFormSeg(){const el=document.getElementById('formSeg');el.innerHTML='';
+  FORMS.forEach(([v,l])=>{const b=document.createElement('button');
+    b.className=formFilter===v?'on':'';b.textContent=l;
+    b.onclick=()=>{formFilter=v;buildFormSeg();buildList();};el.appendChild(b);});}
+function baseForm(p){return p.mirror?(byCode[p.base]||p).form:p.form;}
 function passes(p){
   if(filter==='pass'&&p.run)return false;
   if(filter==='run'&&!p.run)return false;
   if(filter==='core'&&p.gen)return false;
+  if(formFilter!=='all'&&baseForm(p)!==formFilter)return false;
   if(query&&!(p.code+' '+p.name).toLowerCase().includes(query))return false;
   return true;}
 function buildList(){listEl.innerHTML='';
@@ -449,7 +510,7 @@ function buildList(){listEl.innerHTML='';
     if(p.run)bdg+=`<span class="bdg" style="background:#FF3B30">R</span>`;
     b.innerHTML=`<span class="code" style="color:${SC[p.series]}">${p.code}</span><span class="nm">${p.name}</span>${bdg}`;
     b.onclick=()=>selectPlay(p);listEl.appendChild(b);});
-  if(!items.length)listEl.innerHTML='<div style="color:#6C6C70;font-size:13px;padding:14px">No plays match. Clear the search or filter.</div>';}
+  if(!items.length)listEl.innerHTML='<div style="color:#6C6C70;font-size:13px;padding:14px">No plays match. Try another formation or filter.</div>';}
 document.querySelectorAll('#fSeg button').forEach(c=>c.onclick=()=>{filter=c.dataset.f;buildList();});
 document.getElementById('search').addEventListener('input',e=>{query=e.target.value.trim().toLowerCase();buildList();});
 function selectPlay(p,fromSuggest){curPlay=p;flip=false;curT=0;
@@ -595,17 +656,69 @@ function buildPractice(){const el=document.getElementById('practiceContent');
     document.getElementById('tStart').click();
     document.querySelector('#pgPractice .scroll').scrollTo({top:0,behavior:'smooth'});});}
 // ------- team -------
-const ROLES={Q:'Quarterback',C:'Center — snaps, then releases',X:'X — outside receiver',Y:'Y — slot receiver',Z:'Z — speed and motion'};
-function buildRoster(){const box=document.getElementById('rosterBox');box.innerHTML='';
-  for(const w of['Q','C','X','Y','Z']){const row=document.createElement('div');row.className='rosterRow';
-    row.innerHTML=`<div class="pos" style="background:${PCOL[w]}">${w}</div>
-      <input placeholder="Name" value="${roster[w]||''}" data-w="${w}">
-      <div class="role">${ROLES[w]}</div>`;
-    box.appendChild(row);}
-  box.querySelectorAll('input').forEach(inp=>inp.addEventListener('input',()=>{
-    const v=inp.value.trim();if(v)roster[inp.dataset.w]=v;else delete roster[inp.dataset.w];
-    try{localStorage.setItem('u9roster',JSON.stringify(roster));}catch(e){}
-    renderInfo();draw(curT);suggest();buildHome();}));}
+const ROLES={Q:'Quarterback',C:'Center',X:'X receiver',Y:'Y slot',Z:'Z motion'};
+let pickSlot=null;
+function nameOf(pos){const p=squad.find(x=>x.pos===pos);return p?p.name:'';}
+function assign(id,pos){
+  const p=squad.find(x=>x.id===id);if(!p)return;
+  if(p.pos===pos){p.pos=null;}
+  else{const prev=squad.find(x=>x.pos===pos);if(prev)prev.pos=null;p.pos=pos;}
+  pickSlot=null;saveSquad();syncRoster();buildTeam();renderInfo();draw(curT);suggest();buildHome();
+}
+function buildTeam(){
+  const grid=document.getElementById('lineupGrid');grid.innerHTML='';
+  POSN.forEach(pos=>{
+    const b=document.createElement('button');
+    b.className='pslot'+(pickSlot===pos?' active':'');
+    const who=nameOf(pos);
+    b.innerHTML=`<span class="ring" style="background:${PCOL[pos]}">${pos}</span>
+      <span class="who ${who?'':'empty'}">${who||'Open'}</span>
+      <span class="lab">${ROLES[pos]}</span>`;
+    b.onclick=()=>{pickSlot=(pickSlot===pos?null:pos);buildTeam();};
+    grid.appendChild(b);});
+  const filled=POSN.filter(p=>nameOf(p)).length;
+  const bench=squad.filter(p=>!p.pos).length;
+  document.getElementById('benchNote').textContent=
+    `${filled} of 5 positions set · ${bench} player${bench===1?'':'s'} on the bench` +
+    (pickSlot?` · choose who plays ${pickSlot}`:'');
+  const list=document.getElementById('rosterList');list.innerHTML='';
+  squad.forEach((p,i)=>{
+    const row=document.createElement('div');row.className='prow';
+    const btns=POSN.map(pos=>`<button class="pb${p.pos===pos?' on':''}" data-pos="${pos}"
+      style="${p.pos===pos?'background:'+PCOL[pos]:''}">${pos}</button>`).join('');
+    row.innerHTML=`<span class="num${p.pos?' on':''}">${i+1}</span>
+      <input value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="Name" maxlength="14" data-id="${p.id}">
+      <span class="posbtns">${btns}</span>
+      <button class="del" data-id="${p.id}">×</button>`;
+    row.querySelector('input').addEventListener('input',e=>{
+      p.name=e.target.value.trim();saveSquad();syncRoster();
+      renderInfo();draw(curT);suggest();buildHome();
+      document.querySelectorAll('.pslot .who').forEach((el,ix)=>{
+        const w=nameOf(POSN[ix]);el.textContent=w||'Open';el.className='who '+(w?'':'empty');});});
+    row.querySelectorAll('.pb').forEach(b=>b.onclick=()=>assign(p.id,b.dataset.pos));
+    row.querySelector('.del').onclick=()=>{
+      squad=squad.filter(x=>x.id!==p.id);saveSquad();syncRoster();
+      buildTeam();renderInfo();draw(curT);suggest();buildHome();};
+    list.appendChild(row);});
+  if(!squad.length)list.innerHTML='<div style="padding:14px;color:var(--t2);font-size:13.5px">No players yet. Add your roster below.</div>';
+  // slot-pick mode: tapping a roster row assigns to the picked slot
+  if(pickSlot){list.querySelectorAll('.prow').forEach((row,i)=>{
+    row.style.background='#F2F2F4';
+    row.onclick=ev=>{if(ev.target.tagName==='INPUT'||ev.target.classList.contains('pb')||ev.target.classList.contains('del'))return;
+      assign(squad[i].id,pickSlot);};});}
+  document.getElementById('addBtn').disabled=squad.length>=15;
+  document.getElementById('addName').placeholder=squad.length>=15?'Roster full (15)':'Add player';
+}
+function addPlayer(){
+  const inp=document.getElementById('addName');
+  const n=inp.value.trim();if(!n||squad.length>=15)return;
+  const open=POSN.find(pos=>!squad.some(p=>p.pos===pos));
+  squad.push({id:'p'+Date.now()+Math.random().toString(36).slice(2,6),name:n,pos:open||null});
+  inp.value='';saveSquad();syncRoster();buildTeam();renderInfo();draw(curT);suggest();buildHome();
+}
+document.getElementById('addBtn').onclick=addPlayer;
+document.getElementById('addName').addEventListener('keydown',e=>{if(e.key==='Enter')addPlayer();});
+
 // ------- boot -------
 
 // ------- home & game day -------
@@ -700,6 +813,8 @@ function buildHome(){
     img.src=URL.createObjectURL(f);};
   // roster strip
   const avs=document.getElementById('homeAvs');avs.innerHTML='';
+  {const fs=document.getElementById('fiveSub');if(fs){const b=squad.filter(p=>!p.pos).length;
+    fs.textContent=b?`Tap a player to see their plays · ${b} on the bench`:'Tap a player to see their plays.';}}
   for(const w of ['Q','C','X','Y','Z']){
     const b=document.createElement('button');b.className='av';
     const label=roster[w]||({Q:'QB',C:'Center',X:'X',Y:'Y',Z:'Z'})[w];
@@ -720,7 +835,7 @@ function buildHome(){
 document.getElementById('qcPractice').onclick=()=>{showPage('pgPractice');tSet(480);document.getElementById('tStart').click();};
 document.getElementById('qcCall').onclick=()=>showPage('pgCall');
 
-buildSerTabs();buildList();renderInfo();buildSegs();suggest();buildPractice();buildRoster();markPreset();buildHome();
+buildSerTabs();buildFormSeg();buildList();renderInfo();buildSegs();suggest();buildPractice();buildTeam();markPreset();buildHome();tRender();
 resize();curPlay=plays.find(p=>p.code==='X1');buildList();renderInfo();draw(0);showPage('pgHome');
 if('serviceWorker'in navigator){navigator.serviceWorker.register('./sw.js');}
 </script>
