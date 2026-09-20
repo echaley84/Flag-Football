@@ -111,7 +111,7 @@ header .count{font-size:13px;color:var(--t2);font-weight:500;}
 #fieldwrap{flex:1;position:relative;min-height:0;margin:0 20px;border-radius:18px;overflow:hidden;background:var(--surface);}
 canvas{position:absolute;inset:0;width:100%;height:100%;}
 #controls{display:flex;gap:8px;padding:12px 20px;align-items:center;flex-shrink:0;}
-#info{padding:0 20px 12px;flex-shrink:0;max-height:30vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#info{padding:0 20px 12px;flex-shrink:0;max-height:24vh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
 #infoCard{background:var(--surface);border-radius:16px;padding:16px 18px;}
 #info h2{margin:0 0 3px;font-size:19px;font-weight:800;letter-spacing:-.4px;}
 #info .meta{color:var(--t2);font-size:13px;margin-bottom:10px;}
@@ -162,6 +162,37 @@ canvas{position:absolute;inset:0;width:100%;height:100%;}
 .dtag{font-size:10px;font-weight:800;border-radius:5px;padding:3px 7px;color:#fff;flex-shrink:0;}
 
 
+
+/* ---- huddle mode ---- */
+body.huddle #app>header,body.huddle #tabBar,body.huddle #pbTop,body.huddle #list,
+body.huddle #info,body.huddle .page:not(#pgPlays){display:none!important;}
+body.huddle #pbMain{padding:0;}
+body.huddle #fieldwrap{margin:0;border-radius:0;}
+body.huddle #controls{padding:10px 16px calc(10px + env(safe-area-inset-bottom));justify-content:center;gap:10px;}
+body.huddle .btn{padding:15px 22px;font-size:17px;}
+body.huddle .btn.play{min-width:132px;font-size:18px;}
+#huddleBar{display:none;position:absolute;top:0;left:0;right:0;z-index:5;
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+  display:none;align-items:center;gap:12px;pointer-events:none;}
+body.huddle #huddleBar{display:flex;}
+#huddleBar .hname{font-size:26px;font-weight:900;letter-spacing:-.6px;color:var(--t1);
+  text-shadow:0 1px 8px rgba(255,255,255,.9);}
+#huddleBar .hto{font-size:15px;font-weight:700;color:var(--t2);}
+#huddleBar .x{margin-left:auto;pointer-events:auto;border:none;background:rgba(10,10,12,.82);color:#fff;
+  width:42px;height:42px;border-radius:50%;font-size:19px;font-weight:700;line-height:1;}
+#hudHint{position:absolute;right:12px;bottom:10px;z-index:4;background:rgba(10,10,12,.55);color:#fff;
+  font-size:11px;font-weight:700;border-radius:100px;padding:6px 11px;pointer-events:none;
+  opacity:0;transition:opacity .25s;}
+#fieldwrap:hover #hudHint,#fieldwrap.showhint #hudHint{opacity:1;}
+body.huddle #hudHint{display:none;}
+#fieldwrap{cursor:pointer;}
+/* give the field more room by default */
+#info.collapsed #infoCard{max-height:none;}
+#info{transition:max-height .2s ease;}
+#info.collapsed{max-height:0;padding-bottom:0;overflow:hidden;}
+#infoToggle{border:none;background:var(--fill);color:var(--t2);font-size:12px;font-weight:700;
+  border-radius:100px;padding:9px 13px;}
+
 /* ---- roster v5 ---- */
 .subhead{font-size:13px;font-weight:600;color:var(--t2);margin:0 2px 8px;}
 .pgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:4px;}
@@ -206,7 +237,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;}
   .chip .nm{display:none;}
   #fieldwrap,#controls,#info{margin-left:14px;margin-right:14px;padding-left:0;padding-right:0;}
   #controls{padding-left:14px;padding-right:14px;margin:0;}
-  #info{padding-left:14px;padding-right:14px;margin:0;max-height:36vh;}
+  #info{padding-left:14px;padding-right:14px;margin:0;max-height:26vh;}
   .rosterRow .role{display:none;}
   header h1{font-size:27px;}
   #hero .big{font-size:34px;}
@@ -258,12 +289,18 @@ canvas{position:absolute;inset:0;width:100%;height:100%;}
     <div id="pbMain">
       <div id="list"><div id="listInner"></div></div>
       <div id="stage">
-        <div id="fieldwrap"><canvas id="cv"></canvas></div>
+        <div id="fieldwrap"><canvas id="cv"></canvas>
+          <div id="huddleBar"><span class="hname" id="hudName"></span><span class="hto" id="hudTo"></span>
+            <button class="x" id="hudClose">✕</button></div>
+          <div id="hudHint">Tap for huddle view</div>
+        </div>
         <div id="controls">
           <button class="btn play" id="btnPlay">Play</button>
           <button class="btn small" id="btnSpeed">1×</button>
           <button class="btn small" id="btnFlip">Flip</button>
           <button class="btn small" id="btnRoutes">Routes on</button>
+          <button class="btn small" id="btnHuddle">Huddle</button>
+          <button class="btn small" id="infoToggle">Details</button>
         </div>
         <div id="info"><div id="infoCard"></div></div>
       </div>
@@ -374,12 +411,14 @@ window.addEventListener('resize',resize);
 function map(p){const wx=33,wy=25,s=Math.min(W/wx,H/wy);
   const ox=W/2,oy=H-8.5*s-(H-wy*s)/2;return[ox+p[0]*s,oy-p[1]*s];}
 function scale(){return Math.min(W/33,H/25);}
+function tok(){return scale()*(huddle?1.55:1.0);}
+function lw(base){return huddle?base*1.75:base;}
 function polyLen(pts){let L=0;for(let i=1;i<pts.length;i++)L+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);return L;}
 function polyAt(pts,t){const L=polyLen(pts);if(!L)return pts[0];let d=t*L;
   for(let i=1;i<pts.length;i++){const s=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);
     if(d<=s){const f=s?d/s:0;return[pts[i-1][0]+(pts[i][0]-pts[i-1][0])*f,pts[i-1][1]+(pts[i][1]-pts[i-1][1])*f];}d-=s;}
   return pts[pts.length-1];}
-let curSeries='X',curPlay=null,flip=false,showRoutes=true,anim=null,curT=0,speed=1;
+let curSeries='X',curPlay=null,flip=false,showRoutes=true,anim=null,curT=0,speed=1,huddle=false;
 const SPEEDS=[0.5,1,2];
 function timeline(g){const mo=g.motion?1.2:0;return{idle:.4,motion:mo,snap:.3,action:2.6,hold:.9,total:.4+mo+.3+2.6+.9};}
 function playerTrack(g,who){
@@ -411,12 +450,12 @@ function drawField(){ctx.clearRect(0,0,W,H);
   ctx.fillStyle='#FFFFFF';ctx.fillRect(0,0,W,H);
   const tl=map([-16,16.5]),br=map([16,-8.5]);
   ctx.fillStyle='#F3F9F3';ctx.fillRect(tl[0],tl[1],br[0]-tl[0],br[1]-tl[1]);
-  ctx.strokeStyle='#E0ECE0';ctx.lineWidth=1;
+  ctx.strokeStyle='#E0ECE0';ctx.lineWidth=huddle?1.8:1;
   [5,10,15].forEach(yy=>{const a=map([-16,yy]),b=map([16,yy]);
     ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
-    ctx.fillStyle='#A9BFA9';ctx.font='600 10px -apple-system';ctx.fillText(yy,a[0]+8,a[1]-4);});
+    ctx.fillStyle='#A9BFA9';ctx.font=`600 ${huddle?15:10}px -apple-system`;ctx.fillText(yy,a[0]+(huddle?12:8),a[1]-5);});
   const a=map([-16,0]),b=map([16,0]);
-  ctx.strokeStyle='#111114';ctx.lineWidth=2;
+  ctx.strokeStyle='#0A0A0C';ctx.lineWidth=huddle?3.5:2;
   ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();}
 function drawPoly(ptsW,color,lw,dash){if(ptsW.length<2)return;ctx.save();
   ctx.strokeStyle=color;ctx.lineWidth=lw;ctx.lineCap='round';ctx.lineJoin='round';
@@ -438,18 +477,18 @@ function pill(cx,cy,txt,bg,fg,fs){ctx.font=`700 ${fs}px -apple-system`;
   ctx.fillStyle=fg;ctx.fillText(txt,cx-w/2,cy+fs*0.36);}
 function draw(t){if(!curPlay){drawField();return;}
   const g=geom(curPlay,flip),tl=timeline(g);drawField();const s=scale();
-  if(g.run){const m=map([0,15.4]);pill(m[0],m[1],'Run play — pass in no-run zones','#FF3B30','#fff',11);}
+  if(g.run){const m=map([0,15.4]);pill(m[0],m[1],'Run play — pass in no-run zones','#E5342B','#fff',huddle?17:11);}
   {const c=map(g.formation['C']),q=map(g.formation['Q']);
-   ctx.save();ctx.strokeStyle='#C3CBC3';ctx.setLineDash([2,4]);ctx.lineWidth=1.3;
+   ctx.save();ctx.strokeStyle='#C3CBC3';ctx.setLineDash(huddle?[4,7]:[2,4]);ctx.lineWidth=huddle?2.2:1.3;
    ctx.beginPath();ctx.moveTo(c[0],c[1]);ctx.lineTo(q[0],q[1]);ctx.stroke();ctx.restore();}
   if(showRoutes){
-    if(g.motion)drawPoly([g.formation[g.motion.player],...g.motion.pts],PCOL[g.motion.player],1.8,[5,5]);
+    if(g.motion)drawPoly([g.formation[g.motion.player],...g.motion.pts],PCOL[g.motion.player],lw(1.8),huddle?[9,8]:[5,5]);
     for(const who of['C','X','Y','Z']){const tr=playerTrack(g,who);
       if(tr.pts.length>1){const prim=who===g.primary;
         ctx.globalAlpha=prim?1:.55;
-        drawPoly(tr.pts,PCOL[who],prim?4:2);
+        drawPoly(tr.pts,PCOL[who],lw(prim?4:2));
         ctx.globalAlpha=1;
-        if(prim)star(tr.pts[tr.pts.length-1],8,'#F5A50A');}}
+        if(prim)star(tr.pts[tr.pts.length-1],huddle?15:8,'#F5A50A');}}
     g.mesh.forEach(m=>{const p=map(m);ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(Math.PI/4);
       ctx.fillStyle='#fff';ctx.strokeStyle='#111114';ctx.lineWidth=1.6;
       ctx.beginPath();ctx.rect(-3.5,-3.5,7,7);ctx.fill();ctx.stroke();ctx.restore();});}
@@ -457,21 +496,26 @@ function draw(t){if(!curPlay){drawField();return;}
     const prim=who===g.primary;
     ctx.save();
     ctx.shadowColor='rgba(0,0,0,.18)';ctx.shadowBlur=6;ctx.shadowOffsetY=2;
-    ctx.beginPath();ctx.arc(m[0],m[1],s*1.0,0,7);ctx.fillStyle=PCOL[who];ctx.fill();
+    const R=tok();
+    ctx.beginPath();ctx.arc(m[0],m[1],R,0,7);ctx.fillStyle=PCOL[who];ctx.fill();
     ctx.restore();
-    if(prim){ctx.beginPath();ctx.arc(m[0],m[1],s*1.3,0,7);ctx.strokeStyle='#F5A50A';ctx.lineWidth=2.5;ctx.stroke();}
-    ctx.beginPath();ctx.arc(m[0],m[1],s*1.0,0,7);ctx.strokeStyle='#fff';ctx.lineWidth=1.8;ctx.stroke();
-    ctx.fillStyle='#fff';ctx.font=`800 ${Math.max(11,s*1.0)}px -apple-system`;
+    if(prim){ctx.beginPath();ctx.arc(m[0],m[1],R*1.32,0,7);ctx.strokeStyle='#F5A50A';ctx.lineWidth=huddle?4.5:2.5;ctx.stroke();}
+    ctx.beginPath();ctx.arc(m[0],m[1],R,0,7);ctx.strokeStyle='#fff';ctx.lineWidth=huddle?3:1.8;ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font=`800 ${Math.max(11,R*1.02)}px -apple-system`;
     ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(who,m[0],m[1]+.5);
-    if(roster[who]){ctx.font='600 10px -apple-system';ctx.fillStyle='#6C6C70';
-      ctx.fillText(roster[who],m[0],m[1]+s*1.0+10);}
+    if(roster[who]){const fs=huddle?Math.max(15,R*.62):10;
+      ctx.font=`700 ${fs}px -apple-system`;
+      ctx.lineWidth=huddle?4:3;ctx.strokeStyle='rgba(255,255,255,.92)';
+      ctx.strokeText(roster[who],m[0],m[1]+R+fs*.95);
+      ctx.fillStyle=huddle?'#0A0A0C':'#6C6C70';
+      ctx.fillText(roster[who],m[0],m[1]+R+fs*.95);}
     ctx.textAlign='start';ctx.textBaseline='alphabetic';}
   {const b=ballAt(g,t),m=map(b);ctx.save();ctx.translate(m[0],m[1]);
-   ctx.beginPath();ctx.ellipse(0,0,scale()*.52,scale()*.34,.5,0,7);
-   ctx.fillStyle='#8B5A2B';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=1.3;ctx.stroke();ctx.restore();}
+   ctx.beginPath();ctx.ellipse(0,0,tok()*.55,tok()*.36,.5,0,7);
+   ctx.fillStyle='#8B5A2B';ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=huddle?2.4:1.3;ctx.stroke();ctx.restore();}
   if(t>tl.total-tl.hold+.1){const m=map([0,-6.8]);
     const carrier=g.primary,who=roster[carrier]||carrier;
-    pill(m[0],m[1],g.run?who+' is loose':'Complete to '+who,'#111114','#fff',15);}}
+    pill(m[0],m[1],g.run?who+' is loose':'Complete to '+who,'#0A0A0C','#fff',huddle?26:15);}}
 function startAnim(){if(!curPlay)return;cancelAnimationFrame(anim);
   const tl=timeline(geom(curPlay,flip)),t0=performance.now();
   function step(now){curT=(now-t0)/1000*speed;
@@ -515,7 +559,7 @@ document.querySelectorAll('#fSeg button').forEach(c=>c.onclick=()=>{filter=c.dat
 document.getElementById('search').addEventListener('input',e=>{query=e.target.value.trim().toLowerCase();buildList();});
 function selectPlay(p,fromSuggest){curPlay=p;flip=false;curT=0;
   if(fromSuggest){showPage('pgPlays');curSeries=p.series;buildSerTabs();}
-  buildList();renderInfo();draw(0);startAnim();}
+  buildList();renderInfo();hudHeader();draw(0);startAnim();}
 function renderInfo(){if(!curPlay){infoEl.innerHTML='<div class="row">Choose a play, then press Play.</div>';return;}
   const g=geom(curPlay,flip);
   infoEl.innerHTML=`
@@ -528,10 +572,46 @@ function renderInfo(){if(!curPlay){infoEl.innerHTML='<div class="row">Choose a p
    <div class="row"><span class="lab">Coach</span><span>${curPlay.coach}</span></div>`;}
 document.getElementById('btnPlay').onclick=()=>startAnim();
 document.getElementById('btnSpeed').onclick=e=>{speed=SPEEDS[(SPEEDS.indexOf(speed)+1)%3];e.target.textContent=(speed+'×').replace('0.5','½');};
-document.getElementById('btnFlip').onclick=()=>{flip=!flip;renderInfo();draw(0);startAnim();};
+document.getElementById('btnFlip').onclick=()=>{flip=!flip;renderInfo();hudHeader();draw(0);startAnim();};
 document.getElementById('btnRoutes').onclick=e=>{showRoutes=!showRoutes;e.target.textContent=showRoutes?'Routes on':'Routes off';draw(curT);};
+
+// ------- huddle mode -------
+function hudHeader(){
+  if(!curPlay)return;
+  const g=geom(curPlay,flip);
+  document.getElementById('hudName').textContent=curPlay.code+' '+curPlay.name;
+  const w=roster[g.primary]||g.primary;
+  document.getElementById('hudTo').textContent='Ball to '+w;
+}
+function setHuddle(on){
+  huddle=on;
+  document.body.classList.toggle('huddle',on);
+  document.getElementById('btnHuddle').textContent=on?'Exit':'Huddle';
+  hudHeader();
+  try{on?(screen.orientation&&0):0;}catch(e){}
+  setTimeout(()=>{resize();startAnim();},60);
+}
+document.getElementById('btnHuddle').onclick=()=>setHuddle(!huddle);
+document.getElementById('hudClose').onclick=e=>{e.stopPropagation();setHuddle(false);};
+document.getElementById('fieldwrap').addEventListener('click',e=>{
+  if(e.target.closest('#hudClose'))return;
+  if(!huddle){setHuddle(true);}else{startAnim();}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&huddle)setHuddle(false);});
+// details collapse
+const infoEl2=document.getElementById('info');
+let infoOpen=true;
+document.getElementById('infoToggle').onclick=()=>{
+  infoOpen=!infoOpen;infoEl2.classList.toggle('collapsed',!infoOpen);
+  document.getElementById('infoToggle').textContent=infoOpen?'Details':'Show details';
+  setTimeout(resize,220);};
+// hint on first visit
+(function(){let seen=false;try{seen=localStorage.getItem('u9hudhint')==='1';}catch(e){}
+ if(!seen){const fw=document.getElementById('fieldwrap');fw.classList.add('showhint');
+  setTimeout(()=>{fw.classList.remove('showhint');try{localStorage.setItem('u9hudhint','1');}catch(e){}},6000);}})();
+
 // ------- pages -------
-function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));
+function showPage(id){if(huddle&&id!=='pgPlays')setHuddle(false);document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));
   document.querySelectorAll('.ttab').forEach(t=>{
     const on=t.dataset.pg===id;t.classList.toggle('active',on);
     if(on){document.getElementById('pgTitle').textContent=t.dataset.title;
