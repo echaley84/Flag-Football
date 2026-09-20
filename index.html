@@ -163,6 +163,28 @@ canvas{position:absolute;inset:0;width:100%;height:100%;}
 
 
 
+
+/* ---- huddle v7 ---- */
+#hudStage{display:none;position:absolute;left:0;right:0;bottom:0;z-index:6;
+  padding:0 16px calc(14px + env(safe-area-inset-bottom));
+  align-items:center;justify-content:center;gap:12px;}
+body.huddle #hudStage{display:flex;}
+#hudBig{border:none;border-radius:100px;background:var(--ink);color:#fff;
+  font-size:22px;font-weight:800;letter-spacing:-.3px;padding:18px 40px;
+  box-shadow:0 6px 22px rgba(10,10,12,.28);}
+#hudBig:active{opacity:.6;}
+#hudSteps{display:flex;gap:8px;}
+.hstep{border:none;border-radius:100px;background:rgba(255,255,255,.94);color:var(--t1);
+  font-size:15px;font-weight:700;padding:14px 20px;box-shadow:0 2px 12px rgba(10,10,12,.14);}
+.hstep.on{background:var(--ink);color:#fff;}
+#hudPhase{position:absolute;left:0;right:0;top:calc(52px + env(safe-area-inset-top));z-index:5;
+  text-align:center;pointer-events:none;display:none;}
+body.huddle #hudPhase{display:block;}
+#hudPhase span{display:inline-block;background:rgba(10,10,12,.86);color:#fff;font-size:15px;font-weight:700;
+  border-radius:100px;padding:7px 18px;}
+body.huddle #controls{display:none;}
+#huddleBar .x{width:46px;height:46px;font-size:21px;}
+
 /* ---- huddle mode ---- */
 body.huddle #app>header,body.huddle #tabBar,body.huddle #pbTop,body.huddle #list,
 body.huddle #info,body.huddle .page:not(#pgPlays){display:none!important;}
@@ -293,6 +315,12 @@ body.huddle #hudHint{display:none;}
           <div id="huddleBar"><span class="hname" id="hudName"></span><span class="hto" id="hudTo"></span>
             <button class="x" id="hudClose">✕</button></div>
           <div id="hudHint">Tap for huddle view</div>
+          <div id="hudPhase"><span id="hudPhaseTxt">Line up</span></div>
+          <div id="hudStage">
+            <button class="hstep" id="hudAlign">Line up</button>
+            <button id="hudBig">Run it ▶</button>
+            <button class="hstep" id="hudSlow">½×</button>
+          </div>
         </div>
         <div id="controls">
           <button class="btn play" id="btnPlay">Play</button>
@@ -529,13 +557,13 @@ function buildSerTabs(){serTabs.innerHTML='';
   for(const s of['X','Y','Z','C','R']){const b=document.createElement('button');
     b.className='stab'+(s===curSeries?' active':'');
     b.innerHTML=`<span class="dot" style="background:${SC[s]}"></span>${SNAMES[s]}`;
-    b.onclick=()=>{curSeries=s;buildSerTabs();buildList();};serTabs.appendChild(b);}}
+    b.onclick=()=>{curSeries=s;buildSerTabs();buildList();autoSelect();};serTabs.appendChild(b);}}
 
 const FORMS=[['all','All'],['SP','Spread'],['TR','Trips R'],['TL','Trips L'],['BR','Bunch']];
 function buildFormSeg(){const el=document.getElementById('formSeg');el.innerHTML='';
   FORMS.forEach(([v,l])=>{const b=document.createElement('button');
     b.className=formFilter===v?'on':'';b.textContent=l;
-    b.onclick=()=>{formFilter=v;buildFormSeg();buildList();};el.appendChild(b);});}
+    b.onclick=()=>{formFilter=v;buildFormSeg();buildList();autoSelect();};el.appendChild(b);});}
 function baseForm(p){return p.mirror?(byCode[p.base]||p).form:p.form;}
 function passes(p){
   if(filter==='pass'&&p.run)return false;
@@ -544,6 +572,17 @@ function passes(p){
   if(formFilter!=='all'&&baseForm(p)!==formFilter)return false;
   if(query&&!(p.code+' '+p.name).toLowerCase().includes(query))return false;
   return true;}
+
+function visiblePlays(){return plays.filter(p=>p.series===curSeries&&passes(p));}
+function autoSelect(){
+  const items=visiblePlays();
+  if(!items.length)return;
+  if(curPlay&&items.some(p=>p.code===curPlay.code))return;   // current still valid
+  const pick=items.find(p=>!p.gen)||items[0];                 // prefer a core play
+  curPlay=pick;flip=false;curT=0;
+  buildList();renderInfo();hudHeader();
+  if(huddle){showAlignment();}else{draw(0);startAnim();}
+}
 function buildList(){listEl.innerHTML='';
   const items=plays.filter(p=>p.series===curSeries&&passes(p));
   document.querySelectorAll('#fSeg button').forEach(c=>c.classList.toggle('on',c.dataset.f===filter));
@@ -555,11 +594,12 @@ function buildList(){listEl.innerHTML='';
     b.innerHTML=`<span class="code" style="color:${SC[p.series]}">${p.code}</span><span class="nm">${p.name}</span>${bdg}`;
     b.onclick=()=>selectPlay(p);listEl.appendChild(b);});
   if(!items.length)listEl.innerHTML='<div style="color:#6C6C70;font-size:13px;padding:14px">No plays match. Try another formation or filter.</div>';}
-document.querySelectorAll('#fSeg button').forEach(c=>c.onclick=()=>{filter=c.dataset.f;buildList();});
-document.getElementById('search').addEventListener('input',e=>{query=e.target.value.trim().toLowerCase();buildList();});
+document.querySelectorAll('#fSeg button').forEach(c=>c.onclick=()=>{filter=c.dataset.f;buildList();autoSelect();});
+document.getElementById('search').addEventListener('input',e=>{query=e.target.value.trim().toLowerCase();buildList();autoSelect();});
 function selectPlay(p,fromSuggest){curPlay=p;flip=false;curT=0;
   if(fromSuggest){showPage('pgPlays');curSeries=p.series;buildSerTabs();}
-  buildList();renderInfo();hudHeader();draw(0);startAnim();}
+  buildList();renderInfo();hudHeader();
+  if(huddle){showAlignment();}else{draw(0);startAnim();}}
 function renderInfo(){if(!curPlay){infoEl.innerHTML='<div class="row">Choose a play, then press Play.</div>';return;}
   const g=geom(curPlay,flip);
   infoEl.innerHTML=`
@@ -572,8 +612,44 @@ function renderInfo(){if(!curPlay){infoEl.innerHTML='<div class="row">Choose a p
    <div class="row"><span class="lab">Coach</span><span>${curPlay.coach}</span></div>`;}
 document.getElementById('btnPlay').onclick=()=>startAnim();
 document.getElementById('btnSpeed').onclick=e=>{speed=SPEEDS[(SPEEDS.indexOf(speed)+1)%3];e.target.textContent=(speed+'×').replace('0.5','½');};
-document.getElementById('btnFlip').onclick=()=>{flip=!flip;renderInfo();hudHeader();draw(0);startAnim();};
+document.getElementById('btnFlip').onclick=()=>{flip=!flip;renderInfo();hudHeader();
+  if(huddle){showAlignment();}else{draw(0);startAnim();}};
 document.getElementById('btnRoutes').onclick=e=>{showRoutes=!showRoutes;e.target.textContent=showRoutes?'Routes on':'Routes off';draw(curT);};
+
+
+// ------- huddle playback control (v7) -------
+let hudSpeed=1;
+function showAlignment(){
+  cancelAnimationFrame(anim);
+  curT=0;draw(0);
+  setPhase('Line up');
+  const b=document.getElementById('hudBig');if(b)b.textContent='Run it ▶';
+}
+function setPhase(txt){
+  const el=document.getElementById('hudPhaseTxt');if(el)el.textContent=txt;
+}
+function runHuddle(){
+  if(!curPlay)return;
+  const g=geom(curPlay,flip),tl=timeline(g);
+  cancelAnimationFrame(anim);
+  const t0=performance.now();
+  const b=document.getElementById('hudBig');
+  if(b)b.textContent='Running…';
+  function step(now){
+    curT=(now-t0)/1000*hudSpeed;
+    if(curT>=tl.total){curT=tl.total;draw(curT);
+      setPhase(g.run?'Ball carrier loose':'Ball delivered');
+      if(b)b.textContent='Run again ▶';
+      return;}
+    // phase labels
+    if(curT<tl.idle)setPhase('Line up');
+    else if(g.motion&&curT<tl.idle+tl.motion)setPhase('Motion');
+    else if(curT<tl.idle+tl.motion+tl.snap)setPhase('Snap');
+    else setPhase('Routes');
+    draw(curT);anim=requestAnimationFrame(step);
+  }
+  anim=requestAnimationFrame(step);
+}
 
 // ------- huddle mode -------
 function hudHeader(){
@@ -588,15 +664,20 @@ function setHuddle(on){
   document.body.classList.toggle('huddle',on);
   document.getElementById('btnHuddle').textContent=on?'Exit':'Huddle';
   hudHeader();
-  try{on?(screen.orientation&&0):0;}catch(e){}
-  setTimeout(()=>{resize();startAnim();},60);
+  setTimeout(()=>{resize();if(on){showAlignment();}else{draw(curT);}},60);
 }
 document.getElementById('btnHuddle').onclick=()=>setHuddle(!huddle);
 document.getElementById('hudClose').onclick=e=>{e.stopPropagation();setHuddle(false);};
 document.getElementById('fieldwrap').addEventListener('click',e=>{
-  if(e.target.closest('#hudClose'))return;
-  if(!huddle){setHuddle(true);}else{startAnim();}
+  if(e.target.closest('#hudClose')||e.target.closest('#hudStage'))return;
+  if(!huddle){setHuddle(true);}else{runHuddle();}
 });
+document.getElementById('hudBig').onclick=e=>{e.stopPropagation();runHuddle();};
+document.getElementById('hudAlign').onclick=e=>{e.stopPropagation();showAlignment();};
+document.getElementById('hudSlow').onclick=e=>{e.stopPropagation();
+  hudSpeed=hudSpeed===1?0.5:1;
+  e.target.textContent=hudSpeed===1?'½×':'1×';
+  e.target.classList.toggle('on',hudSpeed===0.5);};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&huddle)setHuddle(false);});
 // details collapse
 const infoEl2=document.getElementById('info');
@@ -871,7 +952,7 @@ function buildHome(){
   hero.innerHTML=inner;
   const q=id=>document.getElementById(id);
   if(q('hOpenCall'))q('hOpenCall').onclick=()=>showPage('pgCall');
-  if(q('hOpenPlays'))q('hOpenPlays').onclick=()=>{filter='core';showPage('pgPlays');buildList();};
+  if(q('hOpenPlays'))q('hOpenPlays').onclick=()=>{filter='core';showPage('pgPlays');buildList();autoSelect();};
   const openForm=()=>q('gform').classList.toggle('open');
   if(q('hEdit'))q('hEdit').onclick=openForm;
   if(q('hPhoto2'))q('hPhoto2').onclick=()=>{q('gform').classList.add('open');q('gFile').click();};
@@ -900,7 +981,7 @@ function buildHome(){
     const label=roster[w]||({Q:'QB',C:'Center',X:'X',Y:'Y',Z:'Z'})[w];
     b.innerHTML=`<span class="c" style="background:${PCOL[w]}">${(roster[w]||w)[0].toUpperCase()}</span>${label}`;
     b.onclick=()=>{if(w==='Q'){showPage('pgTeam');return;}
-      curSeries=w==='Q'?'R':w;showPage('pgPlays');buildSerTabs();buildList();};
+      curSeries=w==='Q'?'R':w;showPage('pgPlays');buildSerTabs();buildList();autoSelect();};
     avs.appendChild(b);}
   // header sub + live countdown
   clearInterval(heroTick);
